@@ -428,160 +428,64 @@ class PanKnob(QWidget):
 class ShuffleButton(QPushButton):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedSize(45, 45)
-        self.setCheckable(True)
-        
+        self.setFixedSize(40, 40)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.is_active = False
+        self.svg_renderer = QSvgRenderer("shuffle-solid.svg")
+
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         
-        # Couleur basée sur l'état
-        color = QColor("#FFDD00") if self.isChecked() else QColor("#FFFFFF")
-        
-        # Fond du bouton
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor("#2d2d2d"))
-        painter.drawEllipse(0, 0, self.width(), self.height())
-        
-        # Créer le path pour l'icône shuffle
+        # Dessiner le fond du bouton
         path = QPainterPath()
-        path.moveTo(403.8, 34.4)
-        path.cubicTo(415.8, 29.4, 429.5, 32.2, 438.7, 41.3)
-        path.lineTo(502.7, 105.3)
-        path.cubicTo(508.7, 111.3, 512.1, 119.4, 512.1, 127.9)
-        path.cubicTo(512.1, 136.4, 508.7, 144.5, 502.7, 150.5)
-        path.lineTo(438.7, 214.5)
-        path.cubicTo(429.5, 223.7, 415.8, 226.4, 403.8, 221.4)
-        path.cubicTo(391.8, 216.4, 384, 204.8, 384, 191.8)
-        path.lineTo(384, 159.8)
-        path.lineTo(352, 159.8)
-        path.cubicTo(341.9, 159.8, 332.4, 164.5, 326.4, 172.6)
-        path.lineTo(284, 229.3)
-        path.lineTo(244, 176)
-        path.lineTo(275.2, 134.4)
-        path.cubicTo(293.3, 110.2, 321.8, 96, 352, 96)
-        path.lineTo(384, 96)
-        path.lineTo(384, 64)
-        path.cubicTo(384, 51.1, 391.8, 39.4, 403.8, 34.4)
-        path.closeSubpath()
+        path.addRoundedRect(QRectF(0, 0, self.width(), self.height()), self.height() / 2, self.height() / 2)
+        painter.fillPath(path, QColor("#2d2d2d"))
         
-        path.moveTo(164, 282.7)
-        path.lineTo(204, 336)
-        path.lineTo(172.8, 377.6)
-        path.cubicTo(154.7, 401.8, 126.2, 416, 96, 416)
-        path.lineTo(32, 416)
-        path.cubicTo(14.3, 416, 0, 401.7, 0, 384)
-        path.cubicTo(0, 366.3, 14.3, 352, 32, 352)
-        path.lineTo(96, 352)
-        path.cubicTo(106.1, 352, 115.6, 347.3, 121.6, 339.2)
-        path.lineTo(164, 282.7)
-        path.closeSubpath()
+        # Dessiner l'icône SVG en blanc
+        if self.is_active:
+            painter.setPen(QColor("#FFDD00"))
+        else:
+            painter.setPen(QColor("#FFFFFF"))
+            
+        # Calculer la taille et la position de l'icône (plus petite que le bouton)
+        icon_size = min(self.width(), self.height()) * 0.6
+        x = (self.width() - icon_size) / 2
+        y = (self.height() - icon_size) / 2
+        self.svg_renderer.render(painter, QRectF(x, y, icon_size, icon_size))
         
-        path.moveTo(438.6, 470.7)
-        path.cubicTo(429.4, 479.9, 415.7, 482.6, 403.7, 477.6)
-        path.cubicTo(391.7, 472.6, 383.9, 461, 383.9, 448)
-        path.lineTo(383.9, 416)
-        path.lineTo(351.9, 416)
-        path.cubicTo(321.7, 416, 293.2, 401.8, 275.1, 377.6)
-        path.lineTo(121.6, 172.8)
-        path.cubicTo(115.6, 164.7, 106.1, 160, 96, 160)
-        path.lineTo(32, 160)
-        path.cubicTo(14.3, 160, 0, 145.7, 0, 128)
-        path.cubicTo(0, 110.3, 14.3, 96, 32, 96)
-        path.lineTo(96, 96)
-        path.cubicTo(126.2, 96, 154.7, 110.2, 172.8, 134.4)
-        path.lineTo(326.4, 339.2)
-        path.cubicTo(332.4, 347.3, 341.9, 352, 352, 352)
-        path.lineTo(384, 352)
-        path.lineTo(384, 320)
-        path.cubicTo(384, 307.1, 391.8, 295.4, 403.8, 290.4)
-        path.cubicTo(415.8, 285.4, 429.5, 288.2, 438.7, 297.3)
-        path.lineTo(502.7, 361.3)
-        path.cubicTo(508.7, 367.3, 512.1, 375.4, 512.1, 383.9)
-        path.cubicTo(512.1, 392.4, 508.7, 400.5, 502.7, 406.5)
-        path.lineTo(438.6, 470.7)
-        path.closeSubpath()
-        
-        # Mettre à l'échelle et centrer l'icône
-        scale = 0.035
-        transform = painter.transform()
-        transform.translate(15, 15)  # Augmenté à 15,15 pour un meilleur centrage
-        transform.scale(scale, scale)
-        painter.setTransform(transform)
-        
-        # Dessiner l'icône
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(color)
-        painter.drawPath(path)
+        painter.end()
 
 class RepeatButton(QPushButton):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedSize(45, 45)
-        self.setCheckable(True)
-        
+        self.setFixedSize(40, 40)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.is_active = False
+        self.svg_renderer = QSvgRenderer("repeat-solid.svg")
+
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         
-        # Couleur basée sur l'état
-        color = QColor("#FFDD00") if self.isChecked() else QColor("#FFFFFF")
-        
-        # Fond du bouton
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor("#2d2d2d"))
-        painter.drawEllipse(0, 0, self.width(), self.height())
-        
-        # Créer le path pour l'icône repeat
+        # Dessiner le fond du bouton
         path = QPainterPath()
+        path.addRoundedRect(QRectF(0, 0, self.width(), self.height()), self.height() / 2, self.height() / 2)
+        painter.fillPath(path, QColor("#2d2d2d"))
         
-        # Premier arc de répétition
-        path.moveTo(0, 224)
-        path.cubicTo(0, 241.7, 14.3, 256, 32, 256)
-        path.cubicTo(49.7, 256, 64, 241.7, 64, 224)
-        path.cubicTo(64, 171, 107, 128, 160, 128)
-        path.lineTo(320, 128)
-        path.lineTo(320, 160)
-        path.cubicTo(320, 172.9, 327.8, 184.6, 339.8, 189.6)
-        path.cubicTo(351.8, 194.6, 365.5, 191.9, 374.7, 182.7)
-        path.lineTo(438.7, 118.7)
-        path.cubicTo(451.2, 106.2, 451.2, 85.9, 438.7, 73.4)
-        path.lineTo(374.7, 9.4)
-        path.cubicTo(365.5, 0.2, 351.8, -2.5, 339.8, 2.5)
-        path.cubicTo(327.8, 7.5, 320, 19.1, 320, 32)
-        path.lineTo(320, 64)
-        path.lineTo(160, 64)
-        path.cubicTo(71.6, 64, 0, 135.6, 0, 224)
+        # Dessiner l'icône SVG en blanc
+        if self.is_active:
+            painter.setPen(QColor("#FFDD00"))
+        else:
+            painter.setPen(QColor("#FFFFFF"))
+            
+        # Calculer la taille et la position de l'icône (plus petite que le bouton)
+        icon_size = min(self.width(), self.height()) * 0.6
+        x = (self.width() - icon_size) / 2
+        y = (self.height() - icon_size) / 2
+        self.svg_renderer.render(painter, QRectF(x, y, icon_size, icon_size))
         
-        # Deuxième arc de répétition
-        path.moveTo(512, 288)
-        path.cubicTo(512, 270.3, 497.7, 256, 480, 256)
-        path.cubicTo(462.3, 256, 448, 270.3, 448, 288)
-        path.cubicTo(448, 341, 405, 384, 352, 384)
-        path.lineTo(192, 384)
-        path.lineTo(192, 352)
-        path.cubicTo(192, 339.1, 184.2, 327.4, 172.2, 322.4)
-        path.cubicTo(160.2, 317.4, 146.5, 320.1, 137.3, 329.3)
-        path.lineTo(73.3, 393.3)
-        path.cubicTo(60.8, 405.8, 60.8, 426.1, 73.3, 438.6)
-        path.lineTo(137.3, 502.6)
-        path.cubicTo(146.5, 511.8, 160.2, 514.5, 172.2, 509.5)
-        path.cubicTo(184.2, 504.5, 192, 492.9, 192, 480)
-        path.lineTo(192, 448)
-        path.lineTo(352, 448)
-        path.cubicTo(440.4, 448, 512, 376.4, 512, 288)
-        
-        # Mettre à l'échelle et centrer l'icône
-        scale = 0.035
-        transform = painter.transform()
-        transform.translate(15, 15)
-        transform.scale(scale, scale)
-        painter.setTransform(transform)
-        
-        # Dessiner l'icône
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(color)
-        painter.drawPath(path)
+        painter.end()
 
 class AudioPlayer:
     def __init__(self):
@@ -1269,7 +1173,7 @@ class MacAmp(QMainWindow):
 
     def toggle_shuffle(self):
         self.shuffle_enabled = not self.shuffle_enabled
-        self.shuffle_button.setChecked(self.shuffle_enabled)
+        self.shuffle_button.setEnabled(self.shuffle_enabled)
         
     def toggle_repeat(self):
         self.repeat_enabled = not self.repeat_enabled
