@@ -211,7 +211,7 @@ class RotaryKnob(QWidget):
         self.setFixedSize(45, 45)  # Augmenté de 35 à 45
         self.is_dragging = False
         self.last_y = None
-        self.setCursor(Qt.CursorShape.SizeVerCursor)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -316,7 +316,7 @@ class MacAmp(QMainWindow):
         # Contrôles de lecture
         playback_layout = QHBoxLayout()
         playback_layout.setSpacing(10)
-        playback_layout.setContentsMargins(0, 15, 0, 0)
+        playback_layout.setContentsMargins(0, 5, 0, 0)  # Réduit de 15 à 5 pixels
         
         # Création des boutons
         button_size = 45  # Augmenté de 35 à 45
