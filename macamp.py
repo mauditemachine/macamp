@@ -280,7 +280,7 @@ class RotaryKnob(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.value = 50  # Valeur par défaut (0-100)
-        self.setFixedSize(45, 45)  # Augmenté de 35 à 45
+        self.setFixedSize(54, 54)  # 45 * 1.2 = 54
         self.is_dragging = False
         self.last_y = None
         self.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -295,14 +295,14 @@ class RotaryKnob(QWidget):
         painter.drawEllipse(0, 0, self.width(), self.height())
         
         # Dessiner l'arc de progression avec une épaisseur plus importante
-        pen = QPen(QColor("#666666"), 4)  # Arc de base en gris
+        pen = QPen(QColor("#666666"), 6)  # Arc de base en gris, épaisseur 6px
         painter.setPen(pen)
         rect = QRect(4, 4, self.width() - 8, self.height() - 8)
         painter.drawArc(rect, -135 * 16, -270 * 16)
         
-        # Dessiner l'arc rempli avec du blanc
-        pen.setColor(QColor("#ffffff"))  # Changé de vert à blanc
-        pen.setWidth(4)  # Arc plus épais
+        # Dessiner l'arc rempli en jaune doré
+        pen.setColor(QColor("#FFDD00"))  # Changé de blanc à jaune doré
+        pen.setWidth(6)  # Arc plus épais, 6px
         painter.setPen(pen)
         span = int(-270 * (self.value / 100.0) * 16)
         painter.drawArc(rect, -135 * 16, span)
@@ -359,31 +359,16 @@ class PanKnob(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         
-        # Cercle noir de base
-        painter.setPen(QPen(QColor("#000000"), 2))
+        # Dessiner le fond rond gris
+        painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor("#2d2d2d"))
-        painter.drawEllipse(2, 2, self.width()-4, self.height()-4)
+        painter.drawEllipse(0, 0, self.width(), self.height())
         
         # Calculer l'angle
         angle = (self.value - 50) * 1.8  # -90 à +90 degrés
         
-        # Si pas en position centrale, dessiner l'arc blanc
-        if self.value != 50:
-            pen = QPen(QColor("#ffffff"), 2)
-            painter.setPen(pen)
-            rect = QRect(2, 2, self.width()-4, self.height()-4)
-            
-            # Pour Qt:
-            # - start_angle = 90 (commence en haut)
-            # - span_angle négatif = sens horaire (vers la droite)
-            # - span_angle positif = sens anti-horaire (vers la gauche)
-            start_angle = 90
-            span_angle = -angle  # Inverser pour avoir le bon sens
-            
-            painter.drawArc(rect, int(start_angle * 16), int(span_angle * 16))
-        
-        # Ligne noire
-        pen = QPen(QColor("#000000"), 2)
+        # Ligne blanche
+        pen = QPen(QColor("#ffffff"), 4)  # Contour blanc, épaisseur 4px
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         painter.setPen(pen)
         
@@ -437,23 +422,23 @@ class ShuffleButton(QPushButton):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         
-        # Dessiner le fond du bouton
-        path = QPainterPath()
-        path.addRoundedRect(QRectF(0, 0, self.width(), self.height()), self.height() / 2, self.height() / 2)
-        painter.fillPath(path, QColor("#2d2d2d"))
+        # Dessiner le fond rond gris
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor("#2d2d2d"))
+        painter.drawEllipse(0, 0, self.width(), self.height())
         
-        # Dessiner l'icône SVG en blanc
-        if self.is_active:
-            painter.setPen(QColor("#FFDD00"))
-        else:
-            painter.setPen(QColor("#FFFFFF"))
-            
-        # Calculer la taille et la position de l'icône (plus petite que le bouton)
-        icon_size = min(self.width(), self.height()) * 0.6
+        # Calculer la taille et la position de l'icône (plus petite)
+        icon_size = min(self.width(), self.height()) * 0.45  # Réduit à 45% du bouton
         x = (self.width() - icon_size) / 2
         y = (self.height() - icon_size) / 2
-        self.svg_renderer.render(painter, QRectF(x, y, icon_size, icon_size))
         
+        # Dessiner l'icône SVG
+        if self.is_active:
+            color = QColor("#FFDD00")
+        else:
+            color = QColor("#FFFFFF")
+            
+        self.svg_renderer.render(painter, QRectF(x, y, icon_size, icon_size))
         painter.end()
 
 class RepeatButton(QPushButton):
@@ -468,23 +453,23 @@ class RepeatButton(QPushButton):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         
-        # Dessiner le fond du bouton
-        path = QPainterPath()
-        path.addRoundedRect(QRectF(0, 0, self.width(), self.height()), self.height() / 2, self.height() / 2)
-        painter.fillPath(path, QColor("#2d2d2d"))
+        # Dessiner le fond rond gris
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor("#2d2d2d"))
+        painter.drawEllipse(0, 0, self.width(), self.height())
         
-        # Dessiner l'icône SVG en blanc
-        if self.is_active:
-            painter.setPen(QColor("#FFDD00"))
-        else:
-            painter.setPen(QColor("#FFFFFF"))
-            
-        # Calculer la taille et la position de l'icône (plus petite que le bouton)
-        icon_size = min(self.width(), self.height()) * 0.6
+        # Calculer la taille et la position de l'icône (plus petite)
+        icon_size = min(self.width(), self.height()) * 0.45  # Réduit à 45% du bouton
         x = (self.width() - icon_size) / 2
         y = (self.height() - icon_size) / 2
-        self.svg_renderer.render(painter, QRectF(x, y, icon_size, icon_size))
         
+        # Dessiner l'icône SVG
+        if self.is_active:
+            color = QColor("#FFDD00")
+        else:
+            color = QColor("#FFFFFF")
+            
+        self.svg_renderer.render(painter, QRectF(x, y, icon_size, icon_size))
         painter.end()
 
 class AudioPlayer:
@@ -668,12 +653,12 @@ class MacAmp(QMainWindow):
         self.repeat_button.setCheckable(True)
         
         buttons = [
-            (self.shuffle_button, 22),  # J'augmente la taille de la police pour le shuffle
             (self.prev_button, 18),
             (self.play_button, 22),
             (self.stop_button, 18),
             (self.next_button, 18),
-            (self.repeat_button, 18)
+            (self.repeat_button, 18),
+            (self.shuffle_button, 22)  # Déplacé à la fin de la liste
         ]
         
         # Ajouter un spacer extensible à gauche pour pousser les boutons vers la droite
@@ -709,6 +694,7 @@ class MacAmp(QMainWindow):
             
         # Ajout des boutons rotatifs
         playback_layout.addWidget(self.pan_knob)
+        playback_layout.addSpacing(10)  # Ajoute 10px d'espacement
         playback_layout.addWidget(self.volume_knob)
         
         # Connecter les boutons à leurs fonctions
@@ -952,6 +938,11 @@ class MacAmp(QMainWindow):
         """Démarre la lecture à une position spécifique"""
         try:
             if self.current_file:
+                # Arrêter la lecture en cours si elle existe
+                if self.is_playing:
+                    self.audio_player.stop()
+                
+                # Démarrer la nouvelle lecture
                 self.audio_player.play(start_pos=position)
                 self.is_playing = True
                 self.play_button.setText("⏸")
