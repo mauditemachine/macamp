@@ -53,6 +53,7 @@ class PlaylistWidget(QTreeWidget):
         self.setColumnWidth(0, 150)  # Artiste
         self.setColumnWidth(2, 80)   # Durée
         
+        # Définir l'alignement du texte
         self.setStyleSheet("""
             QTreeWidget {
                 background-color: #2d2d2d;
@@ -124,6 +125,15 @@ class PlaylistWidget(QTreeWidget):
                 item.setForeground(0, QColor("#FFFFFF"))
                 item.setForeground(1, QColor("#FFFFFF"))
                 item.setForeground(2, QColor("#FFFFFF"))
+
+    def addTopLevelItem(self, item):
+        super().addTopLevelItem(item)
+        # Aligner le texte de l'artiste à gauche
+        item.setTextAlignment(0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        # Aligner le texte du titre à gauche
+        item.setTextAlignment(1, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        # Aligner le texte de la durée à droite
+        item.setTextAlignment(2, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
 class WaveformWidget(QWidget):
     def __init__(self, parent=None):
