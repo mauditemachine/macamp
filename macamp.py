@@ -644,6 +644,28 @@ class MacAmp(QMainWindow):
         # Ajouter le layout cover + waveform au container principal
         top_container.addLayout(cover_wave_layout)
         
+        # --- NOUVEAU : layout horizontal pour le bouton hamburger ---
+        hamburger_row = QHBoxLayout()
+        hamburger_row.setSpacing(0)
+        hamburger_row.setContentsMargins(0, 0, 0, 0)
+        self.hamburger_button = QPushButton("≡")
+        self.hamburger_button.setFixedSize(40, 40)
+        self.hamburger_button.setStyleSheet("""
+            QPushButton {
+                font-size: 22px;
+                background-color: #2d2d2d;
+                border-radius: 20px;
+                color: #FFFFFF;
+            }
+            QPushButton:hover {
+                color: #FFDD00;
+            }
+        """)
+        hamburger_row.addWidget(self.hamburger_button)
+        hamburger_row.addStretch(1)
+        top_container.addLayout(hamburger_row)
+        # --- FIN NOUVEAU ---
+        
         # Contrôles de lecture
         playback_layout = QHBoxLayout()
         playback_layout.setSpacing(5)  # Réduit de 10 à 5
