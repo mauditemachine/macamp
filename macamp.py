@@ -45,9 +45,13 @@ class PlaylistWidget(QTreeWidget):
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         
         header = self.header()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)  # Artiste en taille fixe
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Titre en stretch
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)  # Durée en taille fixe
+        
+        # Définir les largeurs fixes
+        self.setColumnWidth(0, 150)  # Artiste
+        self.setColumnWidth(2, 80)   # Durée
         
         self.setStyleSheet("""
             QTreeWidget {
