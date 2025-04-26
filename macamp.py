@@ -7,7 +7,8 @@ import io
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QPushButton, 
                             QVBoxLayout, QHBoxLayout, QWidget, QFileDialog,
                             QLabel, QSlider, QListWidget, QFrame, QToolTip,
-                            QTreeWidget, QTreeWidgetItem, QHeaderView, QStyledItemDelegate)
+                            QTreeWidget, QTreeWidgetItem, QHeaderView, QStyledItemDelegate,
+                            QStackedWidget)
 from PyQt6.QtCore import Qt, QTimer, QSize, QPoint, QMimeData, QRect, QRectF
 from PyQt6.QtGui import (QPixmap, QPainter, QColor, QPen, QImage, QLinearGradient, 
                         QBrush, QDragEnterEvent, QDropEvent, QFont, QFontDatabase, QPainterPath)
@@ -91,7 +92,8 @@ class PlaylistWidget(QTreeWidget):
             if path.lower().endswith(('.mp3', '.wav', '.ogg', '.aiff')):
                 files.append(path)
         if files:
-            self.parent().parent().add_files(files)
+            if hasattr(self.window(), 'add_files'):
+                self.window().add_files(files)
 
     def update_track_colors(self):
         """Met à jour la couleur de la piste active en jaune doré"""
@@ -349,7 +351,7 @@ class PanKnob(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.value = 50  # Centre = 50
-        self.setFixedSize(45, 45)
+        self.setFixedSize(32, 32)
         self.is_dragging = False
         self.last_y = None
         self.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -591,7 +593,7 @@ class MacAmp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("MacAmp")
-        self.setGeometry(100, 100, 600, 500)
+        self.setGeometry(100, 100, 360, 430)
         self.setAcceptDrops(True)
         self.setStyleSheet("""
             QMainWindow {
@@ -608,18 +610,18 @@ class MacAmp(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout()
-        layout.setSpacing(8)
-        layout.setContentsMargins(3, 3, 3, 3)
+        layout.setSpacing(0)
+        layout.setContentsMargins(0, 0, 0, 0)
         
         # Zone supérieure (pochette + contrôles)
         top_container = QVBoxLayout()
-        top_container.setSpacing(8)
+        top_container.setSpacing(0)
         top_container.setContentsMargins(0, 0, 0, 0)
         
         # Layout horizontal pour cover + waveform
         cover_wave_layout = QHBoxLayout()
         cover_wave_layout.setSpacing(8)
-        cover_wave_layout.setContentsMargins(0, 0, 0, 0)
+        cover_wave_layout.setContentsMargins(8, 8, 8, 0)
         
         # Pochette d'album
         self.cover_label = QLabel()
@@ -644,17 +646,17 @@ class MacAmp(QMainWindow):
         # Ajouter le layout cover + waveform au container principal
         top_container.addLayout(cover_wave_layout)
         
-        # Contrôles de lecture avec bouton hamburger à gauche
+        # Contrôles de lecture avec hamburger à gauche, autres à droite
         playback_layout = QHBoxLayout()
         playback_layout.setSpacing(5)
-        playback_layout.setContentsMargins(0, 5, 0, 0)
+        playback_layout.setContentsMargins(8, 0, 8, 0)
         
-        button_size = 45
+        button_size = 32
         self.hamburger_button = QPushButton("≡")
         self.hamburger_button.setFixedSize(button_size, button_size)
         self.hamburger_button.setStyleSheet(f"""
             QPushButton {{
-                font-size: 20px;
+                font-size: 16px;
                 background-color: #2d2d2d;
                 border-radius: {button_size//2}px;
                 padding: 0px;
@@ -667,6 +669,7 @@ class MacAmp(QMainWindow):
         """)
         self.hamburger_button.clicked.connect(self.toggle_playlist)
         playback_layout.addWidget(self.hamburger_button)
+        playback_layout.addStretch(1)
         
         self.shuffle_button = ShuffleButton()
         self.prev_button = QPushButton("⏮")
@@ -684,12 +687,12 @@ class MacAmp(QMainWindow):
         self.repeat_button.setCheckable(True)
         
         buttons = [
-            (self.prev_button, 18),
-            (self.play_button, 22),
-            (self.stop_button, 18),
-            (self.next_button, 18),
-            (self.repeat_button, 18),
-            (self.shuffle_button, 22)
+            (self.prev_button, 14),
+            (self.play_button, 16),
+            (self.stop_button, 14),
+            (self.next_button, 14),
+            (self.repeat_button, 14),
+            (self.shuffle_button, 16)
         ]
         
         for button, font_size in buttons:
@@ -719,9 +722,8 @@ class MacAmp(QMainWindow):
                 }}
             """)
             playback_layout.addWidget(button)
-        
         playback_layout.addWidget(self.pan_knob)
-        playback_layout.addSpacing(10)
+        playback_layout.addSpacing(6)
         playback_layout.addWidget(self.volume_knob)
         
         # Connecter les boutons à leurs fonctions
@@ -738,6 +740,8 @@ class MacAmp(QMainWindow):
         top_container.addLayout(playback_layout)
         layout.addLayout(top_container)
         
+        # --- Playlist dans un container pour masquer/afficher sans changer la taille de la fenêtre ---
+        self.playlist_container = QStackedWidget()
         self.playlist_widget = PlaylistWidget(self)
         self.playlist_widget.itemDoubleClicked.connect(self.play_selected_track)
         self.playlist_widget.setStyleSheet("""
@@ -765,6 +769,12 @@ class MacAmp(QMainWindow):
                 font-weight: bold;
             }
         """)
+        self.empty_placeholder = QWidget()
+        self.empty_placeholder.setStyleSheet("background: #111111;")
+        self.playlist_container.addWidget(self.playlist_widget)
+        self.playlist_container.addWidget(self.empty_placeholder)
+        layout.addWidget(self.playlist_container)
+        # --- Fin container ---
         
         self.browse_button = QPushButton("Ajouter des fichiers")
         self.browse_button.setStyleSheet("""
@@ -780,8 +790,6 @@ class MacAmp(QMainWindow):
             }
         """)
         self.browse_button.clicked.connect(self.browse_files)
-        
-        layout.addWidget(self.playlist_widget)
         layout.addWidget(self.browse_button)
         
         central_widget.setLayout(layout)
@@ -796,6 +804,7 @@ class MacAmp(QMainWindow):
         
         # Playlist visible par défaut
         self.playlist_visible = True
+        self._last_full_size = self.size()
     
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
@@ -906,7 +915,10 @@ class MacAmp(QMainWindow):
                 metadata['duration']
             ])
             self.playlist_widget.addTopLevelItem(item)
-            
+            # Forcer l'alignement à gauche de la colonne Artiste
+            item.setTextAlignment(0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+            item.setTextAlignment(1, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+            item.setTextAlignment(2, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         if self.current_index == -1 and self.playlist:
             self.current_index = 0
             self.load_track(self.playlist[0])
@@ -1194,10 +1206,17 @@ class MacAmp(QMainWindow):
         self.repeat_button.setChecked(self.repeat_enabled)
 
     def toggle_playlist(self):
-        if self.playlist_widget.isVisible():
-            self.playlist_widget.hide()
+        if self.playlist_container.currentWidget() == self.playlist_widget:
+            self._last_full_size = self.size()
+            self.playlist_container.setCurrentWidget(self.empty_placeholder)
+            self.browse_button.hide()
+            self.centralWidget().layout().activate()  # Force le recalcul du layout
+            self.adjustSize()  # Force la fenêtre à s'ajuster exactement au contenu visible
         else:
-            self.playlist_widget.show()
+            self.playlist_container.setCurrentWidget(self.playlist_widget)
+            self.browse_button.show()
+            self.centralWidget().layout().activate()
+            self.resize(self._last_full_size)
 
 def main():
     app = QApplication(sys.argv)
