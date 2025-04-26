@@ -12,7 +12,7 @@ fi
 
 # Définir le chemin de l'application
 APP_NAME="MacAmp.app"
-APP_PATH="$HOME/Desktop/$APP_NAME"
+APP_PATH="dist/$APP_NAME"
 CONTENTS_PATH="$APP_PATH/Contents"
 MACOS_PATH="$CONTENTS_PATH/MacOS"
 RESOURCES_PATH="$CONTENTS_PATH/Resources"
@@ -22,6 +22,7 @@ APP_FILES_PATH="$RESOURCES_PATH/MacAmp"
 CURRENT_DIR="$(pwd)"
 
 # Créer la structure de l'application
+mkdir -p dist
 mkdir -p "$MACOS_PATH"
 mkdir -p "$RESOURCES_PATH"
 mkdir -p "$APP_FILES_PATH"
@@ -29,8 +30,8 @@ mkdir -p "$APP_FILES_PATH"
 # Créer le dossier pour l'icône
 mkdir -p MacAmp.iconset
 
-# D'abord convertir le SVG en PNG haute résolution
-sips -s format png iconMacamp.svg --out temp_large.png
+# D'abord convertir le SVG en PNG haute résolution avec une taille réduite
+sips -s format png -Z 512 iconMacamp.svg --out temp_large.png
 
 # Générer les différentes tailles d'icônes
 sips -z 16 16     temp_large.png --out MacAmp.iconset/icon_16x16.png
@@ -42,7 +43,7 @@ sips -z 256 256   temp_large.png --out MacAmp.iconset/icon_128x128@2x.png
 sips -z 256 256   temp_large.png --out MacAmp.iconset/icon_256x256.png
 sips -z 512 512   temp_large.png --out MacAmp.iconset/icon_256x256@2x.png
 sips -z 512 512   temp_large.png --out MacAmp.iconset/icon_512x512.png
-sips -z 1024 1024 temp_large.png --out MacAmp.iconset/icon_512x512@2x.png
+sips -z 512 512   temp_large.png --out MacAmp.iconset/icon_512x512@2x.png
 
 # Créer le fichier .icns
 iconutil -c icns MacAmp.iconset
@@ -56,7 +57,9 @@ cp MacAmp.icns "$RESOURCES_PATH/AppIcon.icns"
 # Copier les fichiers nécessaires
 cp -r "$CURRENT_DIR/macamp.py" "$APP_FILES_PATH/"
 cp -r "$CURRENT_DIR/requirements.txt" "$APP_FILES_PATH/"
-cp -r "$CURRENT_DIR/run.sh" "$APP_FILES_PATH/"
+cp -r "$CURRENT_DIR/iconMacamp.svg" "$APP_FILES_PATH/"
+cp -r "$CURRENT_DIR/shuffle-solid.svg" "$APP_FILES_PATH/"
+cp -r "$CURRENT_DIR/repeat-solid.svg" "$APP_FILES_PATH/"
 cp -r "$CURRENT_DIR/venv" "$APP_FILES_PATH/venv"
 
 # Créer le script de lancement
@@ -64,8 +67,10 @@ cat > "$MACOS_PATH/MacAmp" << EOL
 #!/bin/bash
 cd "\$(dirname "\$0")"
 cd ../Resources/MacAmp
+export PATH="\$PATH:/usr/local/bin:/opt/homebrew/bin"
+export QT_MAC_WANTS_LAYER=1
 source venv/bin/activate
-python3 macamp.py
+exec python3 macamp.py
 EOL
 
 # Rendre le script exécutable
@@ -99,5 +104,5 @@ cat > "$CONTENTS_PATH/Info.plist" << EOL
 </plist>
 EOL
 
-echo "Application créée sur le bureau : $APP_PATH"
+echo "Application créée dans le dossier dist : $APP_PATH"
 echo "Vous pouvez maintenant double-cliquer sur MacAmp.app pour lancer l'application" 

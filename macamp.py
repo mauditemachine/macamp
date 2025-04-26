@@ -1173,13 +1173,8 @@ class MacAmp(QMainWindow):
 def main():
     app = QApplication(sys.argv)
     
-    # Chargement de la police Inter
-    font_id = QFontDatabase.addApplicationFont("/System/Library/Fonts/Inter.ttc")
-    if font_id != -1:
-        font_family = QFontDatabase.applicationFontFamilies(font_id)[0]
-        app.setFont(QFont(font_family, 11))
-    else:
-        print("Police Inter non trouvée, utilisation de la police par défaut")
+    # Utiliser une police système moderne par défaut
+    app.setFont(QFont("SF Pro", 11))
     
     window = MacAmp()
     window.show()
