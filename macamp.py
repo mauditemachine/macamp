@@ -644,35 +644,29 @@ class MacAmp(QMainWindow):
         # Ajouter le layout cover + waveform au container principal
         top_container.addLayout(cover_wave_layout)
         
-        # --- NOUVEAU : layout horizontal pour le bouton hamburger ---
-        hamburger_row = QHBoxLayout()
-        hamburger_row.setSpacing(0)
-        hamburger_row.setContentsMargins(0, 0, 0, 0)
-        self.hamburger_button = QPushButton("≡")
-        self.hamburger_button.setFixedSize(40, 40)
-        self.hamburger_button.setStyleSheet("""
-            QPushButton {
-                font-size: 22px;
-                background-color: #2d2d2d;
-                border-radius: 20px;
-                color: #FFFFFF;
-            }
-            QPushButton:hover {
-                color: #FFDD00;
-            }
-        """)
-        hamburger_row.addWidget(self.hamburger_button)
-        hamburger_row.addStretch(1)
-        top_container.addLayout(hamburger_row)
-        # --- FIN NOUVEAU ---
-        
-        # Contrôles de lecture
+        # Contrôles de lecture avec bouton hamburger à gauche
         playback_layout = QHBoxLayout()
-        playback_layout.setSpacing(5)  # Réduit de 10 à 5
+        playback_layout.setSpacing(5)
         playback_layout.setContentsMargins(0, 5, 0, 0)
         
-        # Création des boutons
         button_size = 45
+        self.hamburger_button = QPushButton("≡")
+        self.hamburger_button.setFixedSize(button_size, button_size)
+        self.hamburger_button.setStyleSheet(f"""
+            QPushButton {{
+                font-size: 20px;
+                background-color: #2d2d2d;
+                border-radius: {button_size//2}px;
+                padding: 0px;
+                margin: 0px;
+                color: #FFFFFF;
+            }}
+            QPushButton:hover {{
+                color: #FFDD00;
+            }}
+        """)
+        playback_layout.addWidget(self.hamburger_button)
+        
         self.shuffle_button = ShuffleButton()
         self.prev_button = QPushButton("⏮")
         self.play_button = QPushButton("▶")
@@ -694,11 +688,8 @@ class MacAmp(QMainWindow):
             (self.stop_button, 18),
             (self.next_button, 18),
             (self.repeat_button, 18),
-            (self.shuffle_button, 22)  # Déplacé à la fin de la liste
+            (self.shuffle_button, 22)
         ]
-        
-        # Ajouter un spacer extensible à gauche pour pousser les boutons vers la droite
-        playback_layout.addStretch(1)
         
         for button, font_size in buttons:
             button.setFixedSize(button_size, button_size)
@@ -727,10 +718,9 @@ class MacAmp(QMainWindow):
                 }}
             """)
             playback_layout.addWidget(button)
-            
-        # Ajout des boutons rotatifs
+        
         playback_layout.addWidget(self.pan_knob)
-        playback_layout.addSpacing(10)  # Ajoute 10px d'espacement
+        playback_layout.addSpacing(10)
         playback_layout.addWidget(self.volume_knob)
         
         # Connecter les boutons à leurs fonctions
@@ -741,17 +731,12 @@ class MacAmp(QMainWindow):
         self.next_button.clicked.connect(self.next_track)
         self.repeat_button.clicked.connect(self.toggle_repeat)
         
-        # Initialiser les états
         self.shuffle_enabled = False
         self.repeat_enabled = False
         
-        # Ajouter les contrôles au container principal
         top_container.addLayout(playback_layout)
-        
-        # Ajouter le container principal au layout global
         layout.addLayout(top_container)
         
-        # Playlist avec style amélioré
         self.playlist_widget = PlaylistWidget(self)
         self.playlist_widget.itemDoubleClicked.connect(self.play_selected_track)
         self.playlist_widget.setStyleSheet("""
@@ -780,7 +765,6 @@ class MacAmp(QMainWindow):
             }
         """)
         
-        # Bouton pour ajouter des fichiers
         self.browse_button = QPushButton("Ajouter des fichiers")
         self.browse_button.setStyleSheet("""
             QPushButton {
@@ -796,7 +780,6 @@ class MacAmp(QMainWindow):
         """)
         self.browse_button.clicked.connect(self.browse_files)
         
-        # Ajout au layout principal
         layout.addWidget(self.playlist_widget)
         layout.addWidget(self.browse_button)
         
