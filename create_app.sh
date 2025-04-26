@@ -1,5 +1,15 @@
 #!/bin/bash
 
+# Vérifier si ImageMagick est installé
+command_exists() {
+    type "$1" &> /dev/null
+}
+
+if ! command_exists "magick"; then
+    echo "Installation de ImageMagick..."
+    brew install imagemagick
+fi
+
 # Définir le chemin de l'application
 APP_NAME="MacAmp.app"
 APP_PATH="$HOME/Desktop/$APP_NAME"
@@ -15,6 +25,33 @@ CURRENT_DIR="$(pwd)"
 mkdir -p "$MACOS_PATH"
 mkdir -p "$RESOURCES_PATH"
 mkdir -p "$APP_FILES_PATH"
+
+# Créer le dossier pour l'icône
+mkdir -p MacAmp.iconset
+
+# D'abord convertir le SVG en PNG haute résolution
+sips -s format png iconMacamp.svg --out temp_large.png
+
+# Générer les différentes tailles d'icônes
+sips -z 16 16     temp_large.png --out MacAmp.iconset/icon_16x16.png
+sips -z 32 32     temp_large.png --out MacAmp.iconset/icon_16x16@2x.png
+sips -z 32 32     temp_large.png --out MacAmp.iconset/icon_32x32.png
+sips -z 64 64     temp_large.png --out MacAmp.iconset/icon_32x32@2x.png
+sips -z 128 128   temp_large.png --out MacAmp.iconset/icon_128x128.png
+sips -z 256 256   temp_large.png --out MacAmp.iconset/icon_128x128@2x.png
+sips -z 256 256   temp_large.png --out MacAmp.iconset/icon_256x256.png
+sips -z 512 512   temp_large.png --out MacAmp.iconset/icon_256x256@2x.png
+sips -z 512 512   temp_large.png --out MacAmp.iconset/icon_512x512.png
+sips -z 1024 1024 temp_large.png --out MacAmp.iconset/icon_512x512@2x.png
+
+# Créer le fichier .icns
+iconutil -c icns MacAmp.iconset
+
+# Nettoyer
+rm -rf MacAmp.iconset temp_large.png
+
+# Copier l'icône dans les ressources
+cp MacAmp.icns "$RESOURCES_PATH/AppIcon.icns"
 
 # Copier les fichiers nécessaires
 cp -r "$CURRENT_DIR/macamp.py" "$APP_FILES_PATH/"
@@ -61,18 +98,6 @@ cat > "$CONTENTS_PATH/Info.plist" << EOL
 </dict>
 </plist>
 EOL
-
-# Créer une icône simple (un carré noir avec du texte blanc)
-cat > "$RESOURCES_PATH/AppIcon.svg" << EOL
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
-  <rect width="512" height="512" fill="#1a1a1a"/>
-  <text x="256" y="256" font-family="Arial" font-size="200" fill="white" text-anchor="middle" dominant-baseline="middle">🎵</text>
-</svg>
-EOL
-
-# Convertir le SVG en icône
-sips -s format icns "$RESOURCES_PATH/AppIcon.svg" --out "$RESOURCES_PATH/AppIcon.icns" 2>/dev/null || true
 
 echo "Application créée sur le bureau : $APP_PATH"
 echo "Vous pouvez maintenant double-cliquer sur MacAmp.app pour lancer l'application" 
