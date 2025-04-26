@@ -665,6 +665,7 @@ class MacAmp(QMainWindow):
                 color: #FFDD00;
             }}
         """)
+        self.hamburger_button.clicked.connect(self.toggle_playlist)
         playback_layout.addWidget(self.hamburger_button)
         
         self.shuffle_button = ShuffleButton()
@@ -793,6 +794,9 @@ class MacAmp(QMainWindow):
         self.waveform = None
         self.current_position = 0
         
+        # Playlist visible par défaut
+        self.playlist_visible = True
+    
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
@@ -1188,6 +1192,12 @@ class MacAmp(QMainWindow):
     def toggle_repeat(self):
         self.repeat_enabled = not self.repeat_enabled
         self.repeat_button.setChecked(self.repeat_enabled)
+
+    def toggle_playlist(self):
+        if self.playlist_widget.isVisible():
+            self.playlist_widget.hide()
+        else:
+            self.playlist_widget.show()
 
 def main():
     app = QApplication(sys.argv)
