@@ -100,9 +100,23 @@ cat > "$CONTENTS_PATH/Info.plist" << EOL
     <string>en</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>LSEnvironment</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
 </dict>
 </plist>
 EOL
+
+# Définir les permissions correctes
+chmod +x "$APP_PATH"
+chmod +x "$CONTENTS_PATH"
+chmod +x "$MACOS_PATH"
+chmod +x "$RESOURCES_PATH"
+chmod +x "$APP_FILES_PATH"
+chmod +x "$APP_FILES_PATH/venv/bin/python3"
+chmod +x "$APP_FILES_PATH/venv/bin/activate"
 
 echo "Application créée dans le dossier dist : $APP_PATH"
 echo "Vous pouvez maintenant double-cliquer sur MacAmp.app pour lancer l'application" 
