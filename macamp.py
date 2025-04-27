@@ -59,30 +59,49 @@ class PlaylistWidget(QTreeWidget):
             QTreeWidget {
                 background-color: #2d2d2d;
                 border-radius: 8px;
-                padding: 0px;
+                padding: 8px;
             }
             QTreeWidget::item {
-                padding: 0px;
-                margin: 0px;
+                padding: 8px;
+                margin: 2px 0;
                 border-radius: 4px;
+                height: 24px;
             }
             QTreeWidget::item:selected {
                 background: none;
             }
             QTreeWidget::item:hover {
-                background: none;
+                background-color: #3d3d3d;
             }
             QHeaderView::section {
                 background-color: transparent;
                 color: #ffffff;
-                padding: 0px;
+                padding: 8px;
                 border: none;
                 font-weight: bold;
+                font-size: 13px;
             }
             QHeaderView::section:first {
-                padding-left: 0px;
+                padding-left: 8px;
                 text-align: left;
                 qproperty-alignment: AlignLeft;
+            }
+            QScrollBar:vertical {
+                border: none;
+                background: #2d2d2d;
+                width: 8px;
+                margin: 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: #3d3d3d;
+                min-height: 20px;
+                border-radius: 4px;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: none;
             }
         """)
         
@@ -270,7 +289,7 @@ class WaveformWidget(QWidget):
             if end_idx > start_idx:
                 amplitude = np.mean(np.abs(self.waveform[start_idx:end_idx]))
                 amplitude = min(1.0, amplitude * 2.5)
-            else:
+            else:   
                 amplitude = 0
                 
             x = i * (bar_width + gap)
@@ -439,16 +458,34 @@ class ShuffleButton(QPushButton):
         super().__init__(parent)
         self.setFixedSize(40, 40)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.is_active = False
         self.svg_renderer = QSvgRenderer("shuffle-solid.svg")
+        self.setCheckable(True)  # Permet au bouton d'être coché/décoché
+        self.setStyleSheet("""
+            QPushButton {
+                background-color: #2d2d2d;
+                border-radius: 20px;
+                padding: 0px;
+                margin: 0px;
+            }
+            QPushButton:checked {
+                background-color: #3d3d3d;
+            }
+            QPushButton:hover {
+                background-color: #3d3d3d;
+            }
+        """)
 
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         
         # Dessiner le fond rond gris
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor("#2d2d2d"))
+        if self.isChecked():
+            painter.setBrush(QColor("#3d3d3d"))  # Plus foncé quand actif
+        else:
+            painter.setBrush(QColor("#2d2d2d"))
         painter.drawEllipse(0, 0, self.width(), self.height())
         
         # Calculer la taille et la position de l'icône (plus petite)
@@ -457,29 +494,71 @@ class ShuffleButton(QPushButton):
         y = (self.height() - icon_size) / 2
         
         # Dessiner l'icône SVG
-        if self.is_active:
-            color = QColor("#FFDD00")
-        else:
-            color = QColor("#FFFFFF")
+        if self.isChecked():
+            # Créer une image temporaire pour l'icône avec une résolution plus élevée
+            scale_factor = 2  # Augmenter la résolution
+            temp_image = QImage(icon_size * scale_factor, icon_size * scale_factor, QImage.Format.Format_ARGB32)
+            temp_image.fill(Qt.GlobalColor.transparent)
+            temp_painter = QPainter(temp_image)
+            temp_painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            temp_painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+            self.svg_renderer.render(temp_painter, QRectF(0, 0, icon_size * scale_factor, icon_size * scale_factor))
+            temp_painter.end()
             
-        self.svg_renderer.render(painter, QRectF(x, y, icon_size, icon_size))
+            # Convertir l'image en jaune doré
+            for i in range(temp_image.width()):
+                for j in range(temp_image.height()):
+                    color = temp_image.pixelColor(i, j)
+                    if color.alpha() > 0:  # Si le pixel n'est pas transparent
+                        temp_image.setPixelColor(i, j, QColor("#FFDD00"))
+            
+            # Dessiner l'image modifiée avec lissage
+            painter.drawImage(QRectF(x, y, icon_size, icon_size), temp_image)
+        else:
+            # Dessiner l'icône en blanc avec lissage
+            painter.setPen(QPen(QColor("#FFFFFF")))
+            painter.setBrush(QColor("#FFFFFF"))
+            self.svg_renderer.render(painter, QRectF(x, y, icon_size, icon_size))
+        
         painter.end()
+
+    def setActive(self, active):
+        self.setChecked(active)  # Mettre à jour l'état coché
+        self.update()  # Forcer le redessinage
 
 class RepeatButton(QPushButton):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFixedSize(40, 40)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.is_active = False
         self.svg_renderer = QSvgRenderer("repeat-solid.svg")
+        self.setCheckable(True)  # Permet au bouton d'être coché/décoché
+        self.setStyleSheet("""
+            QPushButton {
+                background-color: #2d2d2d;
+                border-radius: 20px;
+                padding: 0px;
+                margin: 0px;
+            }
+            QPushButton:checked {
+                background-color: #3d3d3d;
+            }
+            QPushButton:hover {
+                background-color: #3d3d3d;
+            }
+        """)
 
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         
         # Dessiner le fond rond gris
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor("#2d2d2d"))
+        if self.isChecked():
+            painter.setBrush(QColor("#3d3d3d"))  # Plus foncé quand actif
+        else:
+            painter.setBrush(QColor("#2d2d2d"))
         painter.drawEllipse(0, 0, self.width(), self.height())
         
         # Calculer la taille et la position de l'icône (plus petite)
@@ -488,13 +567,37 @@ class RepeatButton(QPushButton):
         y = (self.height() - icon_size) / 2
         
         # Dessiner l'icône SVG
-        if self.is_active:
-            color = QColor("#FFDD00")
-        else:
-            color = QColor("#FFFFFF")
+        if self.isChecked():
+            # Créer une image temporaire pour l'icône avec une résolution plus élevée
+            scale_factor = 2  # Augmenter la résolution
+            temp_image = QImage(icon_size * scale_factor, icon_size * scale_factor, QImage.Format.Format_ARGB32)
+            temp_image.fill(Qt.GlobalColor.transparent)
+            temp_painter = QPainter(temp_image)
+            temp_painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            temp_painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+            self.svg_renderer.render(temp_painter, QRectF(0, 0, icon_size * scale_factor, icon_size * scale_factor))
+            temp_painter.end()
             
-        self.svg_renderer.render(painter, QRectF(x, y, icon_size, icon_size))
+            # Convertir l'image en jaune doré
+            for i in range(temp_image.width()):
+                for j in range(temp_image.height()):
+                    color = temp_image.pixelColor(i, j)
+                    if color.alpha() > 0:  # Si le pixel n'est pas transparent
+                        temp_image.setPixelColor(i, j, QColor("#FFDD00"))
+            
+            # Dessiner l'image modifiée avec lissage
+            painter.drawImage(QRectF(x, y, icon_size, icon_size), temp_image)
+        else:
+            # Dessiner l'icône en blanc avec lissage
+            painter.setPen(QPen(QColor("#FFFFFF")))
+            painter.setBrush(QColor("#FFFFFF"))
+            self.svg_renderer.render(painter, QRectF(x, y, icon_size, icon_size))
+        
         painter.end()
+
+    def setActive(self, active):
+        self.setChecked(active)  # Mettre à jour l'état coché
+        self.update()  # Forcer le redessinage
 
 class AudioPlayer:
     def __init__(self):
@@ -505,6 +608,7 @@ class AudioPlayer:
         self.stream = None
         self.volume = 1.0
         self.pan = 0.0  # -1.0 (gauche) à 1.0 (droite)
+        self.repeat_enabled = False  # Ajout de l'attribut repeat_enabled
         
     def load_file(self, file_path):
         try:
@@ -531,10 +635,22 @@ class AudioPlayer:
         if self.current_frame + frames > self.audio_data.shape[1]:
             # Fin du fichier
             remaining = self.audio_data.shape[1] - self.current_frame
-            outdata[:remaining] = self.apply_pan_and_volume(self.audio_data[:, self.current_frame:self.current_frame + remaining].T)
-            outdata[remaining:] = 0
-            self.stream.stop()
-            self.is_playing = False
+            if remaining > 0:
+                outdata[:remaining] = self.apply_pan_and_volume(self.audio_data[:, self.current_frame:self.current_frame + remaining].T)
+                outdata[remaining:] = 0
+                
+                # Si repeat est activé, recommencer la piste
+                if self.repeat_enabled:
+                    self.current_frame = 0
+                    if remaining < frames:
+                        # Remplir le reste du buffer avec le début de la piste
+                        outdata[remaining:] = self.apply_pan_and_volume(self.audio_data[:, :frames-remaining].T)
+                    # Réinitialiser la position de la waveform
+                    if hasattr(self, 'parent') and hasattr(self.parent, 'waveform_widget'):
+                        self.parent.waveform_widget.set_position(0)
+                else:
+                    self.stream.stop()
+                    self.is_playing = False
         else:
             # Lecture normale
             chunk = self.audio_data[:, self.current_frame:self.current_frame + frames].T
@@ -597,6 +713,34 @@ class AudioPlayer:
             return 0
         return self.audio_data.shape[1] / self.sample_rate
 
+    def toggle_repeat(self):
+        """Active/désactive la répétition de la piste en cours"""
+        self.repeat_enabled = not self.repeat_enabled
+        self.audio_player.repeat_enabled = self.repeat_enabled  # Synchroniser avec l'audio player
+        print(f"Repeat {'activé' if self.repeat_enabled else 'désactivé'}")
+        
+        # Si repeat est activé et qu'une piste est en cours de lecture, s'assurer qu'elle continue
+        if self.repeat_enabled and self.is_playing:
+            self.play()  # Utiliser la méthode play au lieu de self.stream.start()
+            
+        # Ajouter un timer pour vérifier la fin de la piste et réinitialiser la waveform
+        if self.repeat_enabled:
+            self.check_end_timer = QTimer()
+            self.check_end_timer.timeout.connect(self.check_track_end)
+            self.check_end_timer.start(100)  # Vérifier toutes les 100ms
+        else:
+            if hasattr(self, 'check_end_timer'):
+                self.check_end_timer.stop()
+                
+    def check_track_end(self):
+        """Vérifie si la piste est terminée et réinitialise la waveform si nécessaire"""
+        if self.repeat_enabled and self.is_playing:
+            current_pos = self.get_position()
+            duration = self.get_duration()
+            # Réinitialiser la waveform juste avant la fin de la piste
+            if current_pos >= duration - 0.1:  # 100ms avant la fin
+                self.waveform_widget.set_position(0)
+
 class MacAmp(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -619,6 +763,7 @@ class MacAmp(QMainWindow):
             }
         """)
         self.is_large = False
+        self.repeat_enabled = False  # Initialisation de l'état de répétition
         
         # Initialiser le lecteur audio
         self.audio_player = AudioPlayer()
@@ -670,6 +815,7 @@ class MacAmp(QMainWindow):
         button_size = 32
         self.hamburger_button = QPushButton("≡")
         self.hamburger_button.setFixedSize(button_size, button_size)
+        self.hamburger_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.hamburger_button.setStyleSheet(f"""
             QPushButton {{
                 font-size: 16px;
@@ -680,6 +826,7 @@ class MacAmp(QMainWindow):
                 color: #FFFFFF;
             }}
             QPushButton:hover {{
+                background-color: #3d3d3d;
                 color: #FFDD00;
             }}
         """)
@@ -713,6 +860,7 @@ class MacAmp(QMainWindow):
         
         for button, font_size in buttons:
             button.setFixedSize(button_size, button_size)
+            button.setCursor(Qt.CursorShape.PointingHandCursor)
             button.setStyleSheet(f"""
                 QPushButton {{
                     font-size: {font_size}px;
@@ -723,6 +871,7 @@ class MacAmp(QMainWindow):
                     color: #FFFFFF;
                 }}
                 QPushButton:hover {{
+                    background-color: #3d3d3d;
                     color: #FFDD00;
                 }}
                 QPushButton:checked {{
@@ -751,7 +900,8 @@ class MacAmp(QMainWindow):
         self.repeat_button.clicked.connect(self.toggle_repeat)
         
         self.shuffle_enabled = False
-        self.repeat_enabled = False
+        self.shuffle_order = []
+        self.shuffle_pos = 0
         
         top_container.addLayout(playback_layout)
         layout.addLayout(top_container)
@@ -963,24 +1113,78 @@ class MacAmp(QMainWindow):
         index = self.playlist_widget.indexOfTopLevelItem(item)
         if 0 <= index < len(self.playlist):
             self.current_index = index
+            if self.shuffle_enabled:
+                # Mettre à jour la position dans l'ordre shuffle
+                if self.shuffle_order:
+                    self.shuffle_pos = self.shuffle_order.index(index)
             self.load_track(self.playlist[index])
             self.play()
             self.update_active_track()
             
     def previous_track(self):
-        if self.current_index > 0:
-            self.current_index -= 1
-            self.load_track(self.playlist[self.current_index])
-            self.play()
-            self.update_active_track()
-            
+        if not self.playlist:
+            return
+
+        if self.shuffle_enabled and len(self.playlist) > 1:
+            if self.shuffle_pos > 0:
+                self.shuffle_pos -= 1
+                self.current_index = self.shuffle_order[self.shuffle_pos]
+                self.load_track(self.playlist[self.current_index])
+                self.play()
+                self.update_active_track()
+            elif self.repeat_enabled:
+                # Si repeat est activé, aller à la dernière piste
+                self.shuffle_pos = len(self.shuffle_order) - 1
+                self.current_index = self.shuffle_order[self.shuffle_pos]
+                self.load_track(self.playlist[self.current_index])
+                self.play()
+                self.update_active_track()
+        else:
+            if self.current_index > 0:
+                self.current_index -= 1
+                self.load_track(self.playlist[self.current_index])
+                self.play()
+                self.update_active_track()
+            elif self.repeat_enabled:
+                # Si repeat est activé, aller à la dernière piste
+                self.current_index = len(self.playlist) - 1
+                self.load_track(self.playlist[self.current_index])
+                self.play()
+                self.update_active_track()
+
     def next_track(self):
-        if self.current_index < len(self.playlist) - 1:
-            self.current_index += 1
-            self.load_track(self.playlist[self.current_index])
-            self.play()
-            self.update_active_track()
-            
+        if not self.playlist:
+            return
+
+        if self.shuffle_enabled and len(self.playlist) > 1:
+            if not self.shuffle_order:
+                self.toggle_shuffle()  # (re)générer l'ordre si vide
+            if self.shuffle_pos < len(self.shuffle_order) - 1:
+                self.shuffle_pos += 1
+                self.current_index = self.shuffle_order[self.shuffle_pos]
+                self.load_track(self.playlist[self.current_index])
+                self.play()
+                self.update_active_track()
+            elif self.repeat_enabled:
+                # Si repeat est activé, recommencer depuis le début
+                self.shuffle_pos = 0
+                self.current_index = self.shuffle_order[self.shuffle_pos]
+                self.load_track(self.playlist[self.current_index])
+                self.play()
+                self.update_active_track()
+        else:
+            if self.current_index < len(self.playlist) - 1:
+                self.current_index += 1
+                self.load_track(self.playlist[self.current_index])
+                self.play()
+                self.update_active_track()
+            elif self.repeat_enabled:
+                # Si repeat est activé, recommencer depuis le début
+                self.current_index = 0
+                self.load_track(self.playlist[self.current_index])
+                self.play()
+                self.update_active_track()
+
     def play_from_position(self, position):
         """Démarre la lecture à une position spécifique"""
         try:
@@ -1211,11 +1415,50 @@ class MacAmp(QMainWindow):
 
     def toggle_shuffle(self):
         self.shuffle_enabled = not self.shuffle_enabled
-        self.shuffle_button.setEnabled(self.shuffle_enabled)
-        
+        if self.shuffle_enabled:
+            import random
+            self.shuffle_order = list(range(len(self.playlist)))
+            if len(self.shuffle_order) > 1:
+                random.shuffle(self.shuffle_order)
+                # Mettre la piste courante en premier
+                if self.current_index in self.shuffle_order:
+                    self.shuffle_order.remove(self.current_index)
+                self.shuffle_order.insert(0, self.current_index)
+            self.shuffle_pos = 0
+        else:
+            self.shuffle_order = []
+            self.shuffle_pos = 0
+        self.shuffle_button.setChecked(self.shuffle_enabled)
+        print(f"Shuffle {'activé' if self.shuffle_enabled else 'désactivé'}")
+
     def toggle_repeat(self):
+        """Active/désactive la répétition de la piste en cours"""
         self.repeat_enabled = not self.repeat_enabled
         self.repeat_button.setChecked(self.repeat_enabled)
+        self.audio_player.repeat_enabled = self.repeat_enabled  # Synchroniser avec l'audio player
+        print(f"Repeat {'activé' if self.repeat_enabled else 'désactivé'}")
+        
+        # Si repeat est activé et qu'une piste est en cours de lecture, s'assurer qu'elle continue
+        if self.repeat_enabled and self.is_playing:
+            self.play()  # Utiliser la méthode play au lieu de self.stream.start()
+            
+        # Ajouter un timer pour vérifier la fin de la piste et réinitialiser la waveform
+        if self.repeat_enabled:
+            self.check_end_timer = QTimer()
+            self.check_end_timer.timeout.connect(self.check_track_end)
+            self.check_end_timer.start(100)  # Vérifier toutes les 100ms
+        else:
+            if hasattr(self, 'check_end_timer'):
+                self.check_end_timer.stop()
+                
+    def check_track_end(self):
+        """Vérifie si la piste est terminée et réinitialise la waveform si nécessaire"""
+        if self.repeat_enabled and self.is_playing:
+            current_pos = self.audio_player.get_position()
+            duration = self.audio_player.get_duration()
+            # Réinitialiser la waveform juste avant la fin de la piste
+            if current_pos >= duration - 0.1:  # 100ms avant la fin
+                self.waveform_widget.set_position(0)
 
     def toggle_playlist(self):
         taille_compacte = QSize(360, 430)
