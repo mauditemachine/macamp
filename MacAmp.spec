@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['main.py'],
+    ['macamp.py'],
     pathex=[],
     binaries=[],
     datas=[],

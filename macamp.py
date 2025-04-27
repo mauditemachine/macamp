@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QPushButton,
                             QVBoxLayout, QHBoxLayout, QWidget, QFileDialog,
                             QLabel, QSlider, QListWidget, QFrame, QToolTip,
                             QTreeWidget, QTreeWidgetItem, QHeaderView, QStyledItemDelegate,
-                            QStackedWidget)
+                            QStackedWidget, QSizePolicy)
 from PyQt6.QtCore import Qt, QTimer, QSize, QPoint, QMimeData, QRect, QRectF
 from PyQt6.QtGui import (QPixmap, QPainter, QColor, QPen, QImage, QLinearGradient, 
                         QBrush, QDragEnterEvent, QDropEvent, QFont, QFontDatabase, QPainterPath)
@@ -49,42 +49,39 @@ class PlaylistWidget(QTreeWidget):
         header = self.header()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        
-        # Largeur suffisante pour 'Maudite Machine'
-        self.setColumnWidth(0, 130)
-        
+        self.setColumnWidth(0, 120)
         header.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft)
         
+        # Remettre le padding-left de 10px sur le header et les items
+        header.setStyleSheet("""
+            QHeaderView::section {
+                color: #FFFFFF;
+                padding-left: 10px;
+                padding-bottom: 2px;
+                padding-top: 10px;
+            }
+        """)
         self.setStyleSheet("""
             QTreeWidget {
                 background-color: #2d2d2d;
                 border-radius: 8px;
-                padding: 8px;
+                padding: 0px;
+                margin: 0px;
             }
             QTreeWidget::item {
-                padding: 8px;
-                margin: 2px 0;
-                border-radius: 4px;
-                height: 24px;
+                padding-left: 10px;
+                padding: 2px 4px;
+                margin: 0px;
+                border-radius: 0px;
+                height: 22px;
+                font-weight: normal;
+                color: #FFFFFF;
             }
             QTreeWidget::item:selected {
                 background: none;
             }
             QTreeWidget::item:hover {
-                background-color: #3d3d3d;
-            }
-            QHeaderView::section {
-                background-color: transparent;
-                color: #ffffff;
-                padding: 8px;
-                border: none;
-                font-weight: bold;
-                font-size: 13px;
-            }
-            QHeaderView::section:first {
-                padding-left: 8px;
-                text-align: left;
-                qproperty-alignment: AlignLeft;
+                background-color: #333333;
             }
             QScrollBar:vertical {
                 border: none;
@@ -108,10 +105,10 @@ class PlaylistWidget(QTreeWidget):
         for i in range(self.topLevelItemCount()):
             item = self.topLevelItem(i)
             item.setTextAlignment(0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        
+            item.setTextAlignment(1, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
         header.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft)
-        
+
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
@@ -132,17 +129,15 @@ class PlaylistWidget(QTreeWidget):
             item = self.topLevelItem(i)
             if i == self.parent().parent().current_index:
                 # Piste active en jaune doré et gras
-                item.setData(0, Qt.ItemDataRole.UserRole, True)  # Marquer comme active
                 for col in range(2):
-                    font = QFont()
-                    font.setBold(True)
+                    font = QFont("Inter", 12)
+                    font.setBold(False)
                     item.setFont(col, font)
                     item.setForeground(col, QColor("#FFDD00"))
             else:
                 # Autres pistes en blanc et normal
-                item.setData(0, Qt.ItemDataRole.UserRole, False)  # Marquer comme inactive
                 for col in range(2):
-                    font = QFont()
+                    font = QFont("Inter", 12)
                     font.setBold(False)
                     item.setFont(col, font)
                     item.setForeground(col, QColor("#FFFFFF"))
@@ -183,43 +178,69 @@ class WaveformWidget(QWidget):
                 padding: 0px;
             }
         """)
+        # Cache pour les barres de la waveform
+        self.bar_cache = None
+        self.last_width = 0
+        self.last_position = -1
+        self.bar_heights = None  # Cache pour les hauteurs des barres
         
     def format_time(self, seconds):
         return time.strftime('%M:%S', time.gmtime(seconds))
         
     def set_position(self, position):
-        self.current_position = position
-        self.update()
+        if position != self.current_position:
+            self.current_position = position
+            self.update()
         
     def set_waveform(self, waveform, duration):
         self.waveform = waveform
         self.duration = duration
         self.current_file = self.parent().parent().current_file
+        
+        # Précalculer les hauteurs des barres
+        width = self.width()
+        bar_width = 4
+        gap = 2
+        num_bars = width // (bar_width + gap)
+        samples_per_bar = len(self.waveform) // num_bars
+        
+        self.bar_heights = np.zeros(num_bars)
+        for i in range(num_bars):
+            if i * samples_per_bar >= len(self.waveform):
+                break
+            start_idx = i * samples_per_bar
+            end_idx = min((i + 1) * samples_per_bar, len(self.waveform))
+            if end_idx > start_idx:
+                amplitude = np.mean(np.abs(self.waveform[start_idx:end_idx]))
+                self.bar_heights[i] = min(1.0, amplitude * 2.5)
+        
         self.update()
         
     def get_current_file(self):
-        # Obtenir le fichier actuel depuis MacAmp
         return self.parent().parent().current_file
         
     def seek_to_position(self, position):
         if self.waveform is not None:
             try:
-                print(f"Tentative de déplacement vers la position {position}")
                 position = max(0, min(1, position))
                 seek_time = position * self.duration
-                print(f"Temps calculé: {seek_time} secondes")
                 
                 # Mettre à jour la position dans MacAmp
                 main_window = self.parent().parent()
                 main_window.current_position = seek_time
                 
-                # Si en lecture, redémarrer à la nouvelle position
+                # Si en lecture, redémarrer à la nouvelle position immédiatement
                 if main_window.is_playing:
-                    main_window.play_from_position(seek_time)
+                    # Arrêter le stream actuel
+                    if main_window.audio_player.stream:
+                        main_window.audio_player.stream.stop()
+                        main_window.audio_player.stream.close()
+                    
+                    # Démarrer la nouvelle lecture immédiatement
+                    main_window.audio_player.play(start_pos=seek_time)
                 
                 self.current_position = position
                 self.update()
-                print("Déplacement terminé avec succès")
                 
             except Exception as e:
                 print(f"Erreur lors du déplacement: {e}")
@@ -231,7 +252,6 @@ class WaveformWidget(QWidget):
             x = event.position().x()
             width = self.width()
             position = max(0, min(1, x / width))
-            print(f"Clic à la position {position}")
             self.is_dragging = True
             self.seek_to_position(position)
             
@@ -240,7 +260,6 @@ class WaveformWidget(QWidget):
             x = event.position().x()
             width = self.width()
             position = max(0, min(1, x / width))
-            print(f"Relâchement à la position {position}")
             self.seek_to_position(position)
         self.is_dragging = False
             
@@ -251,7 +270,6 @@ class WaveformWidget(QWidget):
         hover_time = position * self.duration
         
         if self.is_dragging and event.buttons() & Qt.MouseButton.LeftButton:
-            print(f"Glissement à la position {position}")
             self.seek_to_position(position)
             
         QToolTip.showText(
@@ -261,7 +279,7 @@ class WaveformWidget(QWidget):
         )
             
     def paintEvent(self, event):
-        if self.waveform is None:
+        if self.waveform is None or self.bar_heights is None:
             return
             
         painter = QPainter(self)
@@ -277,45 +295,35 @@ class WaveformWidget(QWidget):
         bar_width = 4
         gap = 2
         num_bars = width // (bar_width + gap)
-        samples_per_bar = len(self.waveform) // num_bars
         
+        # Calculer la position de la barre de progression
+        progress_x = int(self.current_position * width)
+        
+        # Dessiner les barres avec les hauteurs précalculées
         for i in range(num_bars):
-            if i * samples_per_bar >= len(self.waveform):
+            if i >= len(self.bar_heights):
                 break
                 
-            # Calculer l'amplitude moyenne pour cette barre
-            start_idx = i * samples_per_bar
-            end_idx = min((i + 1) * samples_per_bar, len(self.waveform))
-            if end_idx > start_idx:
-                amplitude = np.mean(np.abs(self.waveform[start_idx:end_idx]))
-                amplitude = min(1.0, amplitude * 2.5)
-            else:   
-                amplitude = 0
-                
             x = i * (bar_width + gap)
-            bar_height = int(amplitude * height * 0.98)
+            bar_height = int(self.bar_heights[i] * height * 0.98)
             y_center = height // 2
             y_top = y_center - bar_height // 2
             
             # Couleur selon la position
-            if x <= self.current_position * width:
-                painter.fillRect(x, y_top, bar_width, bar_height, QColor("#FFDD00"))  # Barres en jaune doré
+            if x <= progress_x:
+                painter.fillRect(x, y_top, bar_width, bar_height, QColor("#FFDD00"))
             else:
                 painter.fillRect(x, y_top, bar_width, bar_height, QColor(80, 80, 80))
         
         # Ligne de progression avec glow
-        progress_x = int(self.current_position * width)
-        
-        # Dessiner un effet de glow
         glow_color = QColor("#FFDD00")
         glow_color.setAlpha(30)
-        glow_pen = QPen(glow_color, 8)  # Glow en jaune doré
+        glow_pen = QPen(glow_color, 8)
         painter.setPen(glow_pen)
         painter.drawLine(progress_x, 0, progress_x, height)
         
         # Ligne principale plus épaisse
-        line_color = QColor("#FFDD00")  # Jaune doré
-            
+        line_color = QColor("#FFDD00")
         painter.setPen(QPen(line_color, 4))
         painter.drawLine(progress_x, 0, progress_x, height)
 
@@ -607,21 +615,39 @@ class AudioPlayer:
         self.current_frame = 0
         self.stream = None
         self.volume = 1.0
-        self.pan = 0.0  # -1.0 (gauche) à 1.0 (droite)
-        self.repeat_enabled = False  # Ajout de l'attribut repeat_enabled
+        self.pan = 0.0
+        self.repeat_enabled = False
+        self.buffer_size = 512
+        self.channels = 2
+        self.preload_buffer = None
+        self.audio_cache = {}
+        self.auto_play_next = True  # Activer la lecture automatique par défaut
         
     def load_file(self, file_path):
         try:
-            # Charger le fichier audio avec librosa
-            audio_data, sample_rate = librosa.load(file_path, sr=None, mono=False)
+            # Vérifier si le fichier est déjà en cache
+            if file_path in self.audio_cache:
+                self.audio_data, self.sample_rate = self.audio_cache[file_path]
+                self.current_frame = 0
+                return True
+                
+            # Charger le fichier audio avec librosa de manière ultra optimisée
+            audio_data, sample_rate = librosa.load(file_path, sr=None, mono=False, res_type='kaiser_fast')
             
             # Convertir en stéréo si mono
             if len(audio_data.shape) == 1:
                 audio_data = np.vstack((audio_data, audio_data))
             
+            # Mettre en cache
+            self.audio_cache[file_path] = (audio_data, sample_rate)
+            
             self.audio_data = audio_data
             self.sample_rate = sample_rate
             self.current_frame = 0
+            
+            # Précharger un petit buffer pour une meilleure réactivité
+            self.preload_buffer = audio_data[:, :self.buffer_size]
+            
             return True
         except Exception as e:
             print(f"Erreur chargement audio: {e}")
@@ -643,14 +669,15 @@ class AudioPlayer:
                 if self.repeat_enabled:
                     self.current_frame = 0
                     if remaining < frames:
-                        # Remplir le reste du buffer avec le début de la piste
-                        outdata[remaining:] = self.apply_pan_and_volume(self.audio_data[:, :frames-remaining].T)
-                    # Réinitialiser la position de la waveform
+                        outdata[remaining:] = self.apply_pan_and_volume(self.preload_buffer[:, :frames-remaining].T)
                     if hasattr(self, 'parent') and hasattr(self.parent, 'waveform_widget'):
                         self.parent.waveform_widget.set_position(0)
                 else:
                     self.stream.stop()
                     self.is_playing = False
+                    # Passer à la piste suivante si auto_play_next est activé
+                    if self.auto_play_next and hasattr(self, 'parent'):
+                        self.parent.next_track()
         else:
             # Lecture normale
             chunk = self.audio_data[:, self.current_frame:self.current_frame + frames].T
@@ -658,15 +685,15 @@ class AudioPlayer:
             self.current_frame += frames
             
     def apply_pan_and_volume(self, audio_chunk):
-        # Appliquer le volume
+        # Appliquer le volume et le pan de manière ultra optimisée
         audio_chunk = audio_chunk * self.volume
         
-        # Appliquer le pan
-        if self.pan < 0:  # Pan vers la gauche
-            audio_chunk[:, 1] *= (1 + self.pan)  # Réduire le canal droit
-        elif self.pan > 0:  # Pan vers la droite
-            audio_chunk[:, 0] *= (1 - self.pan)  # Réduire le canal gauche
-            
+        if self.pan != 0:
+            if self.pan < 0:  # Pan vers la gauche
+                audio_chunk[:, 1] *= (1 + self.pan)
+            else:  # Pan vers la droite
+                audio_chunk[:, 0] *= (1 - self.pan)
+                
         return audio_chunk
             
     def play(self, start_pos=0):
@@ -676,10 +703,18 @@ class AudioPlayer:
         self.current_frame = int(start_pos * self.sample_rate)
         
         try:
+            # Arrêter le stream existant s'il y en a un
+            if self.stream:
+                self.stream.stop()
+                self.stream.close()
+            
             self.stream = sd.OutputStream(
-                channels=2,
+                channels=self.channels,
                 samplerate=self.sample_rate,
-                callback=self.audio_callback
+                callback=self.audio_callback,
+                blocksize=self.buffer_size,
+                latency='low',  # Réduire la latence
+                dtype=np.float32  # Utiliser float32 pour de meilleures performances
             )
             self.stream.start()
             self.is_playing = True
@@ -701,7 +736,7 @@ class AudioPlayer:
         self.volume = volume
         
     def set_pan(self, pan):
-        self.pan = pan  # -1.0 (gauche) à 1.0 (droite)
+        self.pan = pan
         
     def get_position(self):
         if self.audio_data is None:
@@ -712,34 +747,10 @@ class AudioPlayer:
         if self.audio_data is None:
             return 0
         return self.audio_data.shape[1] / self.sample_rate
-
-    def toggle_repeat(self):
-        """Active/désactive la répétition de la piste en cours"""
-        self.repeat_enabled = not self.repeat_enabled
-        self.audio_player.repeat_enabled = self.repeat_enabled  # Synchroniser avec l'audio player
-        print(f"Repeat {'activé' if self.repeat_enabled else 'désactivé'}")
         
-        # Si repeat est activé et qu'une piste est en cours de lecture, s'assurer qu'elle continue
-        if self.repeat_enabled and self.is_playing:
-            self.play()  # Utiliser la méthode play au lieu de self.stream.start()
-            
-        # Ajouter un timer pour vérifier la fin de la piste et réinitialiser la waveform
-        if self.repeat_enabled:
-            self.check_end_timer = QTimer()
-            self.check_end_timer.timeout.connect(self.check_track_end)
-            self.check_end_timer.start(100)  # Vérifier toutes les 100ms
-        else:
-            if hasattr(self, 'check_end_timer'):
-                self.check_end_timer.stop()
-                
-    def check_track_end(self):
-        """Vérifie si la piste est terminée et réinitialise la waveform si nécessaire"""
-        if self.repeat_enabled and self.is_playing:
-            current_pos = self.get_position()
-            duration = self.get_duration()
-            # Réinitialiser la waveform juste avant la fin de la piste
-            if current_pos >= duration - 0.1:  # 100ms avant la fin
-                self.waveform_widget.set_position(0)
+    def clear_cache(self):
+        """Nettoie le cache audio"""
+        self.audio_cache.clear()
 
 class MacAmp(QMainWindow):
     def __init__(self):
@@ -763,7 +774,7 @@ class MacAmp(QMainWindow):
             }
         """)
         self.is_large = False
-        self.repeat_enabled = False  # Initialisation de l'état de répétition
+        self.repeat_enabled = False
         
         # Initialiser le lecteur audio
         self.audio_player = AudioPlayer()
@@ -780,9 +791,9 @@ class MacAmp(QMainWindow):
         top_container.setContentsMargins(0, 0, 0, 0)
         
         # Layout horizontal pour cover + waveform
-        cover_wave_layout = QHBoxLayout()
-        cover_wave_layout.setSpacing(8)
-        cover_wave_layout.setContentsMargins(8, 8, 8, 0)
+        self.cover_wave_layout = QHBoxLayout()
+        self.cover_wave_layout.setSpacing(8)
+        self.cover_wave_layout.setContentsMargins(8, 8, 8, 0)
         
         # Pochette d'album
         self.cover_label = QLabel()
@@ -797,15 +808,16 @@ class MacAmp(QMainWindow):
         """)
         self.cover_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.cover_label.setScaledContents(True)
-        cover_wave_layout.addWidget(self.cover_label)
+        self.cover_wave_layout.addWidget(self.cover_label)
         
         # Waveform
         self.waveform_widget = WaveformWidget()
         self.waveform_widget.setFixedHeight(180)
-        cover_wave_layout.addWidget(self.waveform_widget)
+        self.waveform_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.cover_wave_layout.addWidget(self.waveform_widget)
         
         # Ajouter le layout cover + waveform au container principal
-        top_container.addLayout(cover_wave_layout)
+        top_container.addLayout(self.cover_wave_layout)
         
         # Contrôles de lecture avec hamburger à gauche, autres à droite
         playback_layout = QHBoxLayout()
@@ -914,12 +926,14 @@ class MacAmp(QMainWindow):
             QTreeWidget {
                 background-color: #2d2d2d;
                 border-radius: 8px;
-                padding: 5px;
+                padding: 0px;
+                margin: 0px;
             }
             QTreeWidget::item {
-                padding: 4px;
-                margin: 1px 0;
-                border-radius: 4px;
+                padding-left: -20px;
+                padding: 0px;
+                margin: 0px;
+                border-radius: 0px;
             }
             QTreeWidget::item:selected {
                 background: none;
@@ -930,7 +944,8 @@ class MacAmp(QMainWindow):
             QHeaderView::section {
                 background-color: transparent;
                 color: #ffffff;
-                padding: 5px;
+                padding: 0px;
+                margin: 0px;
                 border: none;
                 font-weight: bold;
             }
@@ -1087,6 +1102,11 @@ class MacAmp(QMainWindow):
             self.current_index = 0
             self.load_track(self.playlist[0])
             self.update_active_track()  # Mise à jour des couleurs pour la première piste
+            # Correction : si la cover est absente, forcer le layout pour la waveform
+            if not self.cover_label.isVisible():
+                QTimer.singleShot(0, self._force_waveform_full_width)
+                QTimer.singleShot(30, self._force_waveform_full_width)
+                QTimer.singleShot(100, self._force_waveform_full_width)
             
     def browse_files(self):
         file_names, _ = QFileDialog.getOpenFileNames(
@@ -1243,14 +1263,15 @@ class MacAmp(QMainWindow):
             self.current_file = file_name
             self.update_active_track()
             
-            # Charger la waveform
-            y, sr = librosa.load(file_name, sr=None)
+            # Charger la waveform de manière optimisée
+            y, sr = librosa.load(file_name, sr=None, duration=None, mono=True)  # Charger en mono pour la waveform
             duration = len(y) / sr
-            self.waveform = librosa.resample(y, orig_sr=sr, target_sr=2000)
+            # Réduire la résolution de la waveform pour de meilleures performances
+            self.waveform = librosa.resample(y, orig_sr=sr, target_sr=1000)  # Réduit à 1000Hz au lieu de 2000Hz
             print(f"Waveform chargée, durée: {duration} secondes")
             self.waveform_widget.set_waveform(self.waveform, duration)
             
-            # Charger l'audio avec le nouveau lecteur
+            # Charger l'audio avec le nouveau lecteur de manière asynchrone
             if self.audio_player.load_file(file_name):
                 # Appliquer les réglages actuels
                 self.audio_player.set_volume(self.volume_knob.value / 100)
@@ -1268,6 +1289,18 @@ class MacAmp(QMainWindow):
             self.current_position = 0
             self.waveform_widget.set_position(0)
             
+            # Optimiser le chargement de la pochette
+            self.load_cover_art(file_name)
+            
+            self.track_loaded = True
+            print("Audio chargé et volume réglé")
+            
+        except Exception as e:
+            print(f"Erreur chargement: {e}")
+
+    def load_cover_art(self, file_name):
+        """Charge la pochette de manière optimisée"""
+        try:
             # Créer un widget personnalisé pour l'affichage par défaut
             default_cover = QWidget()
             default_cover.setFixedSize(180, 180)
@@ -1275,143 +1308,129 @@ class MacAmp(QMainWindow):
                 background-color: #2d2d2d;
                 border-radius: 8px;
             """)
-            
-            # Charger la pochette
-            try:
-                if file_name.lower().endswith('.mp3'):
-                    audio = MP3(file_name)
+            # Charger la pochette de manière optimisée
+            if file_name.lower().endswith('.mp3'):
+                audio = MP3(file_name)
+                if hasattr(audio, 'tags'):
+                    for key in audio.tags.keys():
+                        if key.startswith('APIC'):
+                            apic = audio.tags[key]
+                            img_data = apic.data
+                            pixmap = QPixmap()
+                            pixmap.loadFromData(img_data)
+                            if not pixmap.isNull():
+                                # S'assurer que la cover est dans le layout
+                                if self.cover_wave_layout.indexOf(self.cover_label) == -1:
+                                    self.cover_wave_layout.insertWidget(0, self.cover_label)
+                                self.cover_label.show()
+                                self.waveform_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+                                self.cover_label.setPixmap(pixmap)
+                                self.cover_label.show()
+                                self.waveform_widget.setFixedHeight(180)
+                                print("Pochette MP3 chargée")
+                                return
+            elif file_name.lower().endswith(('.wav', '.aiff')):
+                audio = File(file_name)
+                if audio is not None:
                     if hasattr(audio, 'tags'):
-                        for key in audio.tags.keys():
-                            if key.startswith('APIC'):
-                                apic = audio.tags[key]
-                                img_data = apic.data
-                                pixmap = QPixmap()
-                                pixmap.loadFromData(img_data)
-                                if not pixmap.isNull():
-                                    self.cover_label.setPixmap(pixmap)
-                                    print("Pochette MP3 chargée")
-                                    return
-
-                elif file_name.lower().endswith(('.wav', '.aiff')):
-                    # Essayer de charger avec mutagen
-                    audio = File(file_name)
-                    if audio is not None:
-                        # Pour WAV
-                        if hasattr(audio, 'tags'):
-                            print("Recherche de pochette dans les tags...")
-                            for tag in audio.tags.values():
-                                if hasattr(tag, 'data') and isinstance(tag.data, bytes):
-                                    try:
-                                        pixmap = QPixmap()
-                                        pixmap.loadFromData(tag.data)
-                                        if not pixmap.isNull():
-                                            self.cover_label.setPixmap(pixmap)
-                                            print(f"Pochette {file_name.split('.')[-1].upper()} chargée via tags")
-                                            return
-                                    except:
-                                        continue
-
-                        # Pour AIFF spécifiquement
-                        if file_name.lower().endswith('.aiff'):
-                            print("Recherche de pochette AIFF...")
-                            if hasattr(audio, 'pictures'):
-                                for pic in audio.pictures:
-                                    try:
-                                        pixmap = QPixmap()
-                                        pixmap.loadFromData(pic.data)
-                                        if not pixmap.isNull():
-                                            self.cover_label.setPixmap(pixmap)
-                                            print("Pochette AIFF chargée via pictures")
-                                            return
-                                    except:
-                                        continue
-
-                            # Essayer de trouver un chunk APPL avec des données d'image
-                            if hasattr(audio, '_chunks'):
-                                print("Recherche dans les chunks AIFF...")
-                                for chunk in audio._chunks:
-                                    if chunk.id == b'APPL' or chunk.id == b'PIC ':
-                                        try:
-                                            pixmap = QPixmap()
-                                            pixmap.loadFromData(chunk.data)
-                                            if not pixmap.isNull():
-                                                self.cover_label.setPixmap(pixmap)
-                                                print("Pochette AIFF chargée via chunks")
-                                                return
-                                        except:
-                                            continue
-                
-                # Si pas de pochette trouvée, chercher une image dans le même dossier
-                base_path = os.path.dirname(file_name)
-                base_name = os.path.splitext(os.path.basename(file_name))[0]
-                print(f"Recherche d'image dans le dossier: {base_path}")
-                
-                # Liste des extensions d'image possibles
-                image_extensions = ['.jpg', '.jpeg', '.png', '.gif']
-                possible_names = [
-                    'cover', 'folder', 'album', 'front',
-                    base_name  # Le nom du fichier audio lui-même
-                ]
-                
-                for name in possible_names:
-                    for ext in image_extensions:
-                        image_path = os.path.join(base_path, name + ext)
-                        if os.path.exists(image_path):
-                            try:
-                                pixmap = QPixmap(image_path)
-                                if not pixmap.isNull():
-                                    self.cover_label.setPixmap(pixmap)
-                                    print(f"Image trouvée dans le dossier: {image_path}")
-                                    return
-                            except:
-                                continue
-
-                # Si toujours rien trouvé, créer une pochette par défaut élégante
-                print("Aucune pochette trouvée, création d'une pochette par défaut")
-                
-                # Créer une image vide
-                default_pixmap = QPixmap(180, 180)
-                default_pixmap.fill(Qt.GlobalColor.transparent)
-                
-                # Créer un painter pour dessiner sur l'image
-                painter = QPainter(default_pixmap)
-                painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-                
-                # Dessiner le fond
-                gradient = QLinearGradient(0, 0, 180, 180)
-                gradient.setColorAt(0, QColor("#2d2d2d"))
-                gradient.setColorAt(1, QColor("#1a1a1a"))
-                painter.fillRect(0, 0, 180, 180, gradient)
-                
-                # Dessiner des cercles concentriques
-                pen = QPen(QColor("#3d3d3d"))
-                pen.setWidth(2)
-                painter.setPen(pen)
-                for i in range(3):
-                    painter.drawEllipse(40 + (i * 20), 40 + (i * 20), 100 - (i * 40), 100 - (i * 40))
-                
-                # Dessiner un point central
-                painter.setBrush(QColor("#FFDD00"))
-                painter.setPen(Qt.PenStyle.NoPen)
-                painter.drawEllipse(85, 85, 10, 10)
-                
-                painter.end()
-                
-                # Appliquer l'image par défaut
-                self.cover_label.setPixmap(default_pixmap)
-                
-            except Exception as e:
-                print(f"Erreur pochette: {e}")
-                # En cas d'erreur, utiliser aussi la pochette par défaut élégante
-                default_pixmap = QPixmap(180, 180)
-                default_pixmap.fill(QColor("#2d2d2d"))
-                self.cover_label.setPixmap(default_pixmap)
-                
-            self.track_loaded = True
-            print("Audio chargé et volume réglé")
-            
+                        for tag in audio.tags.values():
+                            if hasattr(tag, 'data') and isinstance(tag.data, bytes):
+                                try:
+                                    pixmap = QPixmap()
+                                    pixmap.loadFromData(tag.data)
+                                    if not pixmap.isNull():
+                                        # S'assurer que la cover est dans le layout
+                                        if self.cover_wave_layout.indexOf(self.cover_label) == -1:
+                                            self.cover_wave_layout.insertWidget(0, self.cover_label)
+                                        self.cover_label.show()
+                                        self.waveform_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+                                        self.cover_label.setPixmap(pixmap)
+                                        self.cover_label.show()
+                                        self.waveform_widget.setFixedHeight(180)
+                                        print(f"Pochette {file_name.split('.')[-1].upper()} chargée via tags")
+                                        return
+                                except:
+                                    continue
+            # Si pas de pochette trouvée, chercher une image dans le même dossier
+            base_path = os.path.dirname(file_name)
+            base_name = os.path.splitext(os.path.basename(file_name))[0]
+            image_extensions = ['.jpg', '.jpeg', '.png', '.gif']
+            possible_names = [
+                'cover', 'folder', 'album', 'front',
+                base_name
+            ]
+            for name in possible_names:
+                for ext in image_extensions:
+                    image_path = os.path.join(base_path, name + ext)
+                    if os.path.exists(image_path):
+                        try:
+                            pixmap = QPixmap(image_path)
+                            if not pixmap.isNull():
+                                # S'assurer que la cover est dans le layout
+                                if self.cover_wave_layout.indexOf(self.cover_label) == -1:
+                                    self.cover_wave_layout.insertWidget(0, self.cover_label)
+                                self.cover_label.show()
+                                self.waveform_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+                                self.cover_label.setPixmap(pixmap)
+                                self.cover_label.show()
+                                self.waveform_widget.setFixedHeight(180)
+                                print(f"Image trouvée dans le dossier: {image_path}")
+                                return
+                        except:
+                            continue
+            # Si toujours rien trouvé, créer une pochette par défaut élégante
+            self.create_default_cover()
         except Exception as e:
-            print(f"Erreur chargement: {e}")
+            print(f"Erreur pochette: {e}")
+            self.create_default_cover()
+
+    def create_default_cover(self):
+        """Crée une pochette par défaut élégante et affiche la waveform en grand"""
+        # Retirer la cover du layout si elle y est
+        if self.cover_wave_layout.indexOf(self.cover_label) != -1:
+            self.cover_wave_layout.removeWidget(self.cover_label)
+        self.cover_label.hide()
+        self.waveform_widget.setFixedHeight(180)
+        self.waveform_widget.setMinimumWidth(0)
+        self.waveform_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.waveform_widget.updateGeometry()
+        self.cover_wave_layout.update()
+        if self.centralWidget() is not None:
+            self.centralWidget().updateGeometry()
+            if self.centralWidget().layout() is not None:
+                self.centralWidget().layout().activate()
+        self.resize(self.size())
+        self.waveform_widget.repaint()
+        # Correction Qt : forcer le layout à la prochaine boucle d'événement (plusieurs fois pour fiabiliser)
+        QTimer.singleShot(0, self._force_waveform_full_width)
+        QTimer.singleShot(30, self._force_waveform_full_width)
+        QTimer.singleShot(100, self._force_waveform_full_width)
+        QTimer.singleShot(200, self._force_waveform_full_width_final)
+
+    def _force_waveform_full_width(self):
+        self.waveform_widget.updateGeometry()
+        self.waveform_widget.repaint()
+        parent = self.waveform_widget.parentWidget()
+        if parent is not None:
+            parent.updateGeometry()
+        if self.centralWidget() is not None:
+            self.centralWidget().updateGeometry()
+            if self.centralWidget().layout() is not None:
+                self.centralWidget().layout().activate()
+        self.resize(self.size())
+
+    def _force_waveform_full_width_final(self):
+        self.waveform_widget.updateGeometry()
+        self.waveform_widget.repaint()
+        parent = self.waveform_widget.parentWidget()
+        if parent is not None:
+            parent.updateGeometry()
+        if self.centralWidget() is not None:
+            self.centralWidget().updateGeometry()
+            if self.centralWidget().layout() is not None:
+                self.centralWidget().layout().activate()
+        self.resize(self.size())
+        self.adjustSize()
 
     def toggle_shuffle(self):
         self.shuffle_enabled = not self.shuffle_enabled
