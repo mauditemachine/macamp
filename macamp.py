@@ -37,33 +37,33 @@ class PlaylistItemDelegate(QStyledItemDelegate):
 class PlaylistWidget(QTreeWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setFont(QFont("Inter", 12))
         self.setAcceptDrops(True)
         self.setDragDropMode(QTreeWidget.DragDropMode.InternalMove)
-        self.setColumnCount(3)
-        self.setHeaderLabels(["Artiste", "Titre", "Durée"])
+        self.setColumnCount(2)
+        self.setHeaderLabels(["Artiste", "Titre"])
         self.setAlternatingRowColors(False)
         self.setSelectionMode(QTreeWidget.SelectionMode.NoSelection)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         
         header = self.header()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)  # Artiste en taille fixe
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Titre en stretch
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)  # Durée en taille fixe
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         
-        # Définir les largeurs fixes
-        self.setColumnWidth(0, 150)  # Artiste
-        self.setColumnWidth(2, 80)   # Durée
+        # Largeur suffisante pour 'Maudite Machine'
+        self.setColumnWidth(0, 130)
         
-        # Définir l'alignement du texte
+        header.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft)
+        
         self.setStyleSheet("""
             QTreeWidget {
                 background-color: #2d2d2d;
                 border-radius: 8px;
-                padding: 5px;
+                padding: 0px;
             }
             QTreeWidget::item {
-                padding: 4px;
-                margin: 1px 0;
+                padding: 0px;
+                margin: 0px;
                 border-radius: 4px;
             }
             QTreeWidget::item:selected {
@@ -75,11 +75,23 @@ class PlaylistWidget(QTreeWidget):
             QHeaderView::section {
                 background-color: transparent;
                 color: #ffffff;
-                padding: 5px;
+                padding: 0px;
                 border: none;
                 font-weight: bold;
             }
+            QHeaderView::section:first {
+                padding-left: 0px;
+                text-align: left;
+                qproperty-alignment: AlignLeft;
+            }
         """)
+        
+        for i in range(self.topLevelItemCount()):
+            item = self.topLevelItem(i)
+            item.setTextAlignment(0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+        header.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft)
         
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
@@ -102,7 +114,7 @@ class PlaylistWidget(QTreeWidget):
             if i == self.parent().parent().current_index:
                 # Piste active en jaune doré et gras
                 item.setData(0, Qt.ItemDataRole.UserRole, True)  # Marquer comme active
-                for col in range(3):
+                for col in range(2):
                     font = QFont()
                     font.setBold(True)
                     item.setFont(col, font)
@@ -110,7 +122,7 @@ class PlaylistWidget(QTreeWidget):
             else:
                 # Autres pistes en blanc et normal
                 item.setData(0, Qt.ItemDataRole.UserRole, False)  # Marquer comme inactive
-                for col in range(3):
+                for col in range(2):
                     font = QFont()
                     font.setBold(False)
                     item.setFont(col, font)
@@ -122,11 +134,9 @@ class PlaylistWidget(QTreeWidget):
             if i == self.parent().parent().current_index:
                 item.setForeground(0, QColor("#FFDD00"))
                 item.setForeground(1, QColor("#FFDD00"))
-                item.setForeground(2, QColor("#FFDD00"))
             else:
                 item.setForeground(0, QColor("#FFFFFF"))
                 item.setForeground(1, QColor("#FFFFFF"))
-                item.setForeground(2, QColor("#FFFFFF"))
 
     def addTopLevelItem(self, item):
         super().addTopLevelItem(item)
@@ -134,8 +144,6 @@ class PlaylistWidget(QTreeWidget):
         item.setTextAlignment(0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         # Aligner le texte du titre à gauche
         item.setTextAlignment(1, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        # Aligner le texte de la durée à droite
-        item.setTextAlignment(2, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
 class WaveformWidget(QWidget):
     def __init__(self, parent=None):
@@ -592,6 +600,13 @@ class AudioPlayer:
 class MacAmp(QMainWindow):
     def __init__(self):
         super().__init__()
+        
+        # Charger la police Inter
+        font_id = QFontDatabase.addApplicationFont("Inter_24pt-Regular.ttf")
+        if font_id != -1:
+            font_family = QFontDatabase.applicationFontFamilies(font_id)[0]
+            self.setFont(QFont(font_family, 12))
+        
         self.setWindowTitle("MacAmp")
         self.setGeometry(100, 100, 360, 430)
         self.setAcceptDrops(True)
@@ -603,6 +618,7 @@ class MacAmp(QMainWindow):
                 color: #ffffff;
             }
         """)
+        self.is_large = False
         
         # Initialiser le lecteur audio
         self.audio_player = AudioPlayer()
@@ -910,15 +926,13 @@ class MacAmp(QMainWindow):
             self.playlist.append(file_path)
             metadata = self.get_metadata(file_path)
             item = QTreeWidgetItem([
-                metadata['artist'],
+                metadata['artist'].strip(),  # Supprimer tous les espaces en début et fin
                 metadata['title'],
-                metadata['duration']
             ])
             self.playlist_widget.addTopLevelItem(item)
             # Forcer l'alignement à gauche de la colonne Artiste
             item.setTextAlignment(0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
             item.setTextAlignment(1, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-            item.setTextAlignment(2, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         if self.current_index == -1 and self.playlist:
             self.current_index = 0
             self.load_track(self.playlist[0])
@@ -941,11 +955,9 @@ class MacAmp(QMainWindow):
             if i == self.current_index:
                 item.setForeground(0, QColor("#FFDD00"))
                 item.setForeground(1, QColor("#FFDD00"))
-                item.setForeground(2, QColor("#FFDD00"))
             else:
                 item.setForeground(0, QColor("#FFFFFF"))
                 item.setForeground(1, QColor("#FFFFFF"))
-                item.setForeground(2, QColor("#FFFFFF"))
 
     def play_selected_track(self, item):
         index = self.playlist_widget.indexOfTopLevelItem(item)
@@ -1206,17 +1218,17 @@ class MacAmp(QMainWindow):
         self.repeat_button.setChecked(self.repeat_enabled)
 
     def toggle_playlist(self):
-        if self.playlist_container.currentWidget() == self.playlist_widget:
-            self._last_full_size = self.size()
-            self.playlist_container.setCurrentWidget(self.empty_placeholder)
-            self.browse_button.hide()
-            self.centralWidget().layout().activate()  # Force le recalcul du layout
-            self.adjustSize()  # Force la fenêtre à s'ajuster exactement au contenu visible
+        taille_compacte = QSize(360, 430)
+        taille_etendue = QSize(530, 430)
+        self.playlist_container.setCurrentWidget(self.playlist_widget)
+        self.browse_button.show()
+        self.centralWidget().layout().activate()
+        if not self.is_large:
+            self.resize(taille_etendue)
+            self.is_large = True
         else:
-            self.playlist_container.setCurrentWidget(self.playlist_widget)
-            self.browse_button.show()
-            self.centralWidget().layout().activate()
-            self.resize(self._last_full_size)
+            self.resize(taille_compacte)
+            self.is_large = False
 
 def main():
     app = QApplication(sys.argv)
