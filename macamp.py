@@ -773,53 +773,36 @@ class MacAmp(QMainWindow):
                 color: #ffffff;
             }
         """)
-        self.is_large = False
-        self.repeat_enabled = False
+        self.is_large = True
+        taille_etendue = QSize(530, 430)
+        self.resize(taille_etendue)
+        layout = QVBoxLayout()
+        layout.setSpacing(4)
+        layout.setContentsMargins(0, 8, 0, 8)
+        self._main_layout = layout
         
         # Initialiser le lecteur audio
         self.audio_player = AudioPlayer()
         
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
+        
+        # Layout principal (mode agrandi, playlist visible) comme avant
         layout = QVBoxLayout()
         layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
-        
-        # Zone supérieure (pochette + contrôles)
-        top_container = QVBoxLayout()
-        top_container.setSpacing(0)
-        top_container.setContentsMargins(0, 0, 0, 0)
-        
-        # Layout horizontal pour cover + waveform
+        self._main_layout = layout
+        central_widget.setLayout(layout)
+        # Layout horizontal pour la waveform
         self.cover_wave_layout = QHBoxLayout()
-        self.cover_wave_layout.setSpacing(8)
-        self.cover_wave_layout.setContentsMargins(8, 8, 8, 0)
-        
-        # Pochette d'album
-        self.cover_label = QLabel()
-        self.cover_label.setFixedSize(180, 180)
-        self.cover_label.setStyleSheet("""
-            QLabel {
-                background-color: #2d2d2d;
-                border-radius: 8px;
-                padding: 0px;
-                margin: 0px;
-            }
-        """)
-        self.cover_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.cover_label.setScaledContents(True)
-        self.cover_wave_layout.addWidget(self.cover_label)
-        
-        # Waveform
+        self.cover_wave_layout.setSpacing(0)
+        self.cover_wave_layout.setContentsMargins(0, 0, 0, 0)
         self.waveform_widget = WaveformWidget()
         self.waveform_widget.setFixedHeight(180)
         self.waveform_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.cover_wave_layout.addWidget(self.waveform_widget)
-        
-        # Ajouter le layout cover + waveform au container principal
-        top_container.addLayout(self.cover_wave_layout)
-        
-        # Contrôles de lecture avec hamburger à gauche, autres à droite
+        layout.addLayout(self.cover_wave_layout)
+        # Contrôles de lecture
         playback_layout = QHBoxLayout()
         playback_layout.setSpacing(5)
         playback_layout.setContentsMargins(8, 0, 8, 0)
@@ -915,8 +898,7 @@ class MacAmp(QMainWindow):
         self.shuffle_order = []
         self.shuffle_pos = 0
         
-        top_container.addLayout(playback_layout)
-        layout.addLayout(top_container)
+        layout.addLayout(playback_layout)
         
         # --- Playlist dans un container pour masquer/afficher sans changer la taille de la fenêtre ---
         self.playlist_container = QStackedWidget()
@@ -984,8 +966,14 @@ class MacAmp(QMainWindow):
         self.current_position = 0
         
         # Playlist visible par défaut
-        self.playlist_visible = True
-        self._last_full_size = self.size()
+        self.playlist_container.setCurrentWidget(self.playlist_widget)
+        self.browse_button.show()
+        self.centralWidget().layout().activate()
+        
+        # Taille de fenêtre agrandie par défaut
+        self.is_large = True
+        taille_etendue = QSize(530, 430)
+        self.resize(taille_etendue)
     
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
@@ -1103,7 +1091,7 @@ class MacAmp(QMainWindow):
             self.load_track(self.playlist[0])
             self.update_active_track()  # Mise à jour des couleurs pour la première piste
             # Correction : si la cover est absente, forcer le layout pour la waveform
-            if not self.cover_label.isVisible():
+            if not self.waveform_widget.isVisible():
                 QTimer.singleShot(0, self._force_waveform_full_width)
                 QTimer.singleShot(30, self._force_waveform_full_width)
                 QTimer.singleShot(100, self._force_waveform_full_width)
@@ -1289,148 +1277,11 @@ class MacAmp(QMainWindow):
             self.current_position = 0
             self.waveform_widget.set_position(0)
             
-            # Optimiser le chargement de la pochette
-            self.load_cover_art(file_name)
-            
             self.track_loaded = True
             print("Audio chargé et volume réglé")
             
         except Exception as e:
             print(f"Erreur chargement: {e}")
-
-    def load_cover_art(self, file_name):
-        """Charge la pochette de manière optimisée"""
-        try:
-            # Créer un widget personnalisé pour l'affichage par défaut
-            default_cover = QWidget()
-            default_cover.setFixedSize(180, 180)
-            default_cover.setStyleSheet("""
-                background-color: #2d2d2d;
-                border-radius: 8px;
-            """)
-            # Charger la pochette de manière optimisée
-            if file_name.lower().endswith('.mp3'):
-                audio = MP3(file_name)
-                if hasattr(audio, 'tags'):
-                    for key in audio.tags.keys():
-                        if key.startswith('APIC'):
-                            apic = audio.tags[key]
-                            img_data = apic.data
-                            pixmap = QPixmap()
-                            pixmap.loadFromData(img_data)
-                            if not pixmap.isNull():
-                                # S'assurer que la cover est dans le layout
-                                if self.cover_wave_layout.indexOf(self.cover_label) == -1:
-                                    self.cover_wave_layout.insertWidget(0, self.cover_label)
-                                self.cover_label.show()
-                                self.waveform_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-                                self.cover_label.setPixmap(pixmap)
-                                self.cover_label.show()
-                                self.waveform_widget.setFixedHeight(180)
-                                print("Pochette MP3 chargée")
-                                return
-            elif file_name.lower().endswith(('.wav', '.aiff')):
-                audio = File(file_name)
-                if audio is not None:
-                    if hasattr(audio, 'tags'):
-                        for tag in audio.tags.values():
-                            if hasattr(tag, 'data') and isinstance(tag.data, bytes):
-                                try:
-                                    pixmap = QPixmap()
-                                    pixmap.loadFromData(tag.data)
-                                    if not pixmap.isNull():
-                                        # S'assurer que la cover est dans le layout
-                                        if self.cover_wave_layout.indexOf(self.cover_label) == -1:
-                                            self.cover_wave_layout.insertWidget(0, self.cover_label)
-                                        self.cover_label.show()
-                                        self.waveform_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-                                        self.cover_label.setPixmap(pixmap)
-                                        self.cover_label.show()
-                                        self.waveform_widget.setFixedHeight(180)
-                                        print(f"Pochette {file_name.split('.')[-1].upper()} chargée via tags")
-                                        return
-                                except:
-                                    continue
-            # Si pas de pochette trouvée, chercher une image dans le même dossier
-            base_path = os.path.dirname(file_name)
-            base_name = os.path.splitext(os.path.basename(file_name))[0]
-            image_extensions = ['.jpg', '.jpeg', '.png', '.gif']
-            possible_names = [
-                'cover', 'folder', 'album', 'front',
-                base_name
-            ]
-            for name in possible_names:
-                for ext in image_extensions:
-                    image_path = os.path.join(base_path, name + ext)
-                    if os.path.exists(image_path):
-                        try:
-                            pixmap = QPixmap(image_path)
-                            if not pixmap.isNull():
-                                # S'assurer que la cover est dans le layout
-                                if self.cover_wave_layout.indexOf(self.cover_label) == -1:
-                                    self.cover_wave_layout.insertWidget(0, self.cover_label)
-                                self.cover_label.show()
-                                self.waveform_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-                                self.cover_label.setPixmap(pixmap)
-                                self.cover_label.show()
-                                self.waveform_widget.setFixedHeight(180)
-                                print(f"Image trouvée dans le dossier: {image_path}")
-                                return
-                        except:
-                            continue
-            # Si toujours rien trouvé, créer une pochette par défaut élégante
-            self.create_default_cover()
-        except Exception as e:
-            print(f"Erreur pochette: {e}")
-            self.create_default_cover()
-
-    def create_default_cover(self):
-        """Crée une pochette par défaut élégante et affiche la waveform en grand"""
-        # Retirer la cover du layout si elle y est
-        if self.cover_wave_layout.indexOf(self.cover_label) != -1:
-            self.cover_wave_layout.removeWidget(self.cover_label)
-        self.cover_label.hide()
-        self.waveform_widget.setFixedHeight(180)
-        self.waveform_widget.setMinimumWidth(0)
-        self.waveform_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.waveform_widget.updateGeometry()
-        self.cover_wave_layout.update()
-        if self.centralWidget() is not None:
-            self.centralWidget().updateGeometry()
-            if self.centralWidget().layout() is not None:
-                self.centralWidget().layout().activate()
-        self.resize(self.size())
-        self.waveform_widget.repaint()
-        # Correction Qt : forcer le layout à la prochaine boucle d'événement (plusieurs fois pour fiabiliser)
-        QTimer.singleShot(0, self._force_waveform_full_width)
-        QTimer.singleShot(30, self._force_waveform_full_width)
-        QTimer.singleShot(100, self._force_waveform_full_width)
-        QTimer.singleShot(200, self._force_waveform_full_width_final)
-
-    def _force_waveform_full_width(self):
-        self.waveform_widget.updateGeometry()
-        self.waveform_widget.repaint()
-        parent = self.waveform_widget.parentWidget()
-        if parent is not None:
-            parent.updateGeometry()
-        if self.centralWidget() is not None:
-            self.centralWidget().updateGeometry()
-            if self.centralWidget().layout() is not None:
-                self.centralWidget().layout().activate()
-        self.resize(self.size())
-
-    def _force_waveform_full_width_final(self):
-        self.waveform_widget.updateGeometry()
-        self.waveform_widget.repaint()
-        parent = self.waveform_widget.parentWidget()
-        if parent is not None:
-            parent.updateGeometry()
-        if self.centralWidget() is not None:
-            self.centralWidget().updateGeometry()
-            if self.centralWidget().layout() is not None:
-                self.centralWidget().layout().activate()
-        self.resize(self.size())
-        self.adjustSize()
 
     def toggle_shuffle(self):
         self.shuffle_enabled = not self.shuffle_enabled
@@ -1480,17 +1331,25 @@ class MacAmp(QMainWindow):
                 self.waveform_widget.set_position(0)
 
     def toggle_playlist(self):
-        taille_compacte = QSize(360, 430)
+        largeur_constante = 530
         taille_etendue = QSize(530, 430)
-        self.playlist_container.setCurrentWidget(self.playlist_widget)
-        self.browse_button.show()
-        self.centralWidget().layout().activate()
-        if not self.is_large:
-            self.resize(taille_etendue)
-            self.is_large = True
-        else:
-            self.resize(taille_compacte)
+        if self.is_large:
+            # Rétrécir la fenêtre : retirer la playlist et le bouton d'ajout, ajuster dynamiquement la hauteur
+            self._main_layout.removeWidget(self.playlist_container)
+            self.playlist_container.setParent(None)
+            self._main_layout.removeWidget(self.browse_button)
+            self.browse_button.setParent(None)
+            self.centralWidget().layout().activate()
+            self.adjustSize()  # Ajuste dynamiquement la hauteur
+            self.resize(largeur_constante, self.height())  # Force la largeur à rester constante
             self.is_large = False
+        else:
+            # Agrandir la fenêtre (largeur/hauteur d'origine), réinsérer la playlist et le bouton d'ajout
+            self.resize(taille_etendue)
+            self._main_layout.addWidget(self.playlist_container)
+            self._main_layout.addWidget(self.browse_button)
+            self.centralWidget().layout().activate()
+            self.is_large = True
 
 def main():
     app = QApplication(sys.argv)
