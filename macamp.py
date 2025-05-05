@@ -4,7 +4,7 @@ import numpy as np
 import librosa
 import sounddevice as sd
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QFileDialog, QLabel)
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject, QThread
 from PyQt6.QtGui import QPainter, QColor, QPen
 import time
 import threading
@@ -143,6 +143,144 @@ class WaveformWidget(QWidget):
         painter.setPen(QPen(line_color, 4))
         painter.drawLine(progress_x, 0, progress_x, height)
 
+class LoaderWorker(QObject):
+    finished = pyqtSignal(dict)
+    error = pyqtSignal(str)
+    def __init__(self, file_name):
+        super().__init__()
+        self.file_name = file_name
+    def run(self):
+        try:
+            import numpy as np
+            import librosa
+            import soundfile as sf
+            import mutagen
+            import pyloudnorm as pyln
+            info = sf.info(self.file_name)
+            bit_depth = info.subtype_info if hasattr(info, 'subtype_info') else ''
+            bits = None
+            if hasattr(info, 'subtype') and 'PCM' in info.subtype:
+                if '24' in info.subtype:
+                    bits = 24
+                elif '16' in info.subtype:
+                    bits = 16
+                elif '32' in info.subtype:
+                    bits = 32
+            elif hasattr(info, 'subtype') and 'FLOAT' in info.subtype:
+                bits = 32
+            else:
+                bits = None
+            # --- Chargement audio (conversion à la volée si besoin) ---
+            temp_wav_path = None
+            if bits == 24:
+                y_stereo, sr = sf.read(self.file_name, dtype='float32', always_2d=True)
+                if len(y_stereo.shape) == 2:
+                    y = np.mean(y_stereo, axis=1)
+                else:
+                    y = y_stereo
+                import tempfile
+                tmp_wav = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
+                sf.write(tmp_wav.name, y, sr, subtype='PCM_16')
+                temp_wav_path = tmp_wav.name
+            else:
+                y_stereo, sr = sf.read(self.file_name, dtype='float32', always_2d=True)
+                if y_stereo.shape[1] == 1:
+                    y = y_stereo[:,0]
+                else:
+                    y = np.mean(y_stereo, axis=1)
+            duration = librosa.get_duration(y=y, sr=sr)
+            y_norm = y / np.max(np.abs(y))
+            artiste = titre = ''
+            try:
+                audio = mutagen.File(self.file_name, easy=True)
+                if audio:
+                    artiste = audio.get('artist', [''])[0]
+                    titre = audio.get('title', [''])[0]
+            except Exception:
+                pass
+            bpm_str = key_str = year_str = ""
+            try:
+                tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
+                bpm_str = f"BPM : {tempo:.1f}"
+            except Exception:
+                pass
+            try:
+                chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
+                key_idx = chroma.mean(axis=1).argmax()
+                key_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+                key_str = f"Key : {key_names[key_idx]}"
+            except Exception:
+                pass
+            try:
+                audio = mutagen.File(self.file_name)
+                year = None
+                if audio:
+                    if 'date' in audio:
+                        year = audio['date'][0]
+                    elif 'TDRC' in audio:
+                        year = str(audio['TDRC'])
+                    elif hasattr(audio, 'tags') and audio.tags:
+                        for tag in ['date', 'year', 'TDRC']:
+                            if tag in audio.tags:
+                                year = str(audio.tags[tag][0])
+                                break
+                if year:
+                    year_str = f"Année : {year}"
+            except Exception:
+                pass
+            infos = " | ".join([s for s in [bpm_str, key_str, year_str] if s])
+            try:
+                meter = pyln.Meter(sr)
+                lufs = meter.integrated_loudness(y_stereo)
+                lufs_str = f" / LUFS: {lufs:.1f} dB"
+            except Exception:
+                lufs_str = ""
+            try:
+                peak = np.max(np.abs(y_stereo))
+                peak_dbfs = 20 * np.log10(peak) if peak > 0 else -np.inf
+                peak_str = f" / Peak : {peak_dbfs:.2f} dBFS"
+            except Exception:
+                peak_str = ""
+            try:
+                if y_stereo.shape[1] == 2:
+                    left = y_stereo[:,0]
+                    right = y_stereo[:,1]
+                    corr = np.corrcoef(left, right)[0,1]
+                    corr_str = f" / Corrélation : {corr:.2f}"
+                else:
+                    corr_str = ""
+            except Exception:
+                corr_str = ""
+            quality = f"{int(sr/1000):.1f} kHz"
+            try:
+                audio = mutagen.File(self.file_name)
+                if audio and hasattr(audio.info, 'bitrate') and audio.info.bitrate:
+                    kbps = int(audio.info.bitrate / 1000)
+                    quality += f" / {kbps} kbps"
+            except Exception:
+                pass
+            if bits:
+                quality += f" / {bits} bits"
+            elif bit_depth:
+                quality += f" / {bit_depth}"
+            quality += lufs_str + peak_str + corr_str
+            result = dict(
+                y=y,
+                y_norm=y_norm,
+                sr=sr,
+                duration=duration,
+                temp_wav_path=temp_wav_path,
+                original_file=self.file_name,
+                artiste=artiste,
+                titre=titre,
+                infos=infos,
+                quality=quality
+            )
+            self.finished.emit(result)
+        except Exception as e:
+            import traceback
+            self.error.emit(str(e) + '\n' + traceback.format_exc())
+
 class SimpleAudioPlayer(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -177,8 +315,8 @@ class SimpleAudioPlayer(QMainWindow):
         controls = QHBoxLayout()
         controls.setSpacing(16)
         controls.setContentsMargins(0, 0, 0, 0)
-        self.play_button = QPushButton("PLUY")
-        self.stop_button = QPushButton("STUP")
+        self.play_button = QPushButton("PLAY")
+        self.stop_button = QPushButton("STOP")
         for btn in [self.play_button, self.stop_button]:
             btn.setFixedHeight(30)
             btn.setMinimumWidth(100)
@@ -224,182 +362,91 @@ class SimpleAudioPlayer(QMainWindow):
             self.load_file(file_name)
 
     def load_file(self, file_name):
-        print(f"[LOG] load_file appelé avec : {file_name}")
-        self.current_file = file_name
-        # --- Extraction bit depth et conversion si besoin ---
-        try:
-            info = sf.info(file_name)
-            print(f"[LOG] sf.info : {info}")
-            bit_depth = info.subtype_info if hasattr(info, 'subtype_info') else ''
-            bits = None
-            if hasattr(info, 'subtype') and 'PCM' in info.subtype:
-                if '24' in info.subtype:
-                    bits = 24
-                elif '16' in info.subtype:
-                    bits = 16
-                elif '32' in info.subtype:
-                    bits = 32
-            elif hasattr(info, 'subtype') and 'FLOAT' in info.subtype:
-                bits = 32
-            else:
-                bits = None
-            print(f"[LOG] Bit depth détecté : {bits} bits ({bit_depth})")
-        except Exception as e:
-            print(f"[LOG] Erreur extraction bit depth : {e}")
-            bit_depth = ''
-            bits = None
-        # --- Chargement audio (conversion à la volée si besoin) ---
-        try:
-            if bits == 24:
-                y_stereo, sr = sf.read(file_name, dtype='float32', always_2d=True)
-                print(f"[LOG] Conversion 24 bits -> 16 bits (float32) pour compatibilité pyglet, sr={sr}, shape={y_stereo.shape if hasattr(y_stereo,'shape') else type(y_stereo)}")
-                # Forcer mono pour la waveform et la lecture
-                if len(y_stereo.shape) == 2:
-                    print(f"[LOG] Signal stéréo détecté, conversion en mono (moyenne des canaux)")
-                    y = np.mean(y_stereo, axis=1)
-                else:
-                    y = y_stereo
-                import tempfile
-                tmp_wav = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
-                sf.write(tmp_wav.name, y, sr, subtype='PCM_16')
-                print(f"[LOG] Fichier temporaire WAV écrit : {tmp_wav.name}")
-                pyglet_file = tmp_wav.name
-            else:
-                y_stereo, sr = sf.read(file_name, dtype='float32', always_2d=True)
-                print(f"[LOG] Chargement soundfile : sr={sr}, shape={y_stereo.shape if hasattr(y_stereo,'shape') else type(y_stereo)}")
-                if y_stereo.shape[1] == 1:
-                    y = y_stereo[:,0]
-                else:
-                    y = np.mean(y_stereo, axis=1)
-                pyglet_file = file_name
-            print(f"[LOG] Signal final pour waveform : shape={y.shape}, dtype={y.dtype}")
-        except Exception as e:
-            print(f"[LOG] Erreur lecture/conversion audio : {e}")
-            self.info_label.setText(f"Erreur lecture audio : {e}")
-            return
-        self.audio_data = y
-        self.sr = sr
-        self.duration = librosa.get_duration(y=y, sr=sr)
-        print(f"[LOG] Durée détectée : {self.duration:.3f} s")
-        if self.duration < 0.1:
-            print(f"[LOG] Durée trop courte ou nulle, abandon.")
-            self.info_label.setText("Erreur : durée audio nulle ou trop courte")
-            return
-        y_norm = y / np.max(np.abs(y))
-        self.waveform_widget.set_waveform(y_norm, self.duration)
+        print(f"[LOG] load_file appelé avec file_name={file_name}")
+        self.info_label.setText("Chargement…")
+        self.quality_label.setText("")
+        self.waveform_widget.set_waveform(None, 0)
         self.waveform_widget.set_position(0)
-        self.is_playing = False
-        self.play_button.setText("▶")
-        # --- Pyglet ---
+        # Arrêter et libérer l'ancienne piste si besoin
         if self.pyglet_player:
+            print("[LOG] Arrêt et suppression de l'ancienne piste pyglet_player")
             self.pyglet_player.pause()
             self.pyglet_player.delete()
+            self.pyglet_player = None
+            self.pyglet_source = None
+        self.current_file = file_name  # Mettre à jour le fichier courant
+        # Thread
+        print("[LOG] Création du thread de chargement audio")
+        self.thread = QThread()
+        self.worker = LoaderWorker(file_name)
+        self.worker.moveToThread(self.thread)
+        self.thread.started.connect(self.worker.run)
+        self.worker.finished.connect(self.on_load_finished)
+        self.worker.error.connect(self.on_load_error)
+        self.worker.finished.connect(self.thread.quit)
+        self.worker.finished.connect(self.worker.deleteLater)
+        self.thread.finished.connect(self.thread.deleteLater)
+        self.thread.start()
+
+    def on_load_finished(self, result):
+        print(f"[LOG] on_load_finished appelé pour {result.get('original_file')}")
+        y = result['y']
+        y_norm = result['y_norm']
+        sr = result['sr']
+        duration = result['duration']
+        temp_wav_path = result['temp_wav_path']
+        original_file = result['original_file']
+        artiste = result['artiste']
+        titre = result['titre']
+        infos = result['infos']
+        quality = result['quality']
+        self.audio_data = y
+        self.sr = sr
+        self.duration = duration
+        # --- Affichage waveform : dynamique réelle simple (valeurs absolues, non normalisées) ---
+        y_display = np.abs(y)
+        self.waveform_widget.set_waveform(y_display, duration)
+        self.waveform_widget.set_position(0)
+        self.is_playing = False
+        self.play_button.setText("PLUY")
+        # --- Pyglet (toujours dans le thread principal !) ---
+        if self.pyglet_player:
+            print("[LOG] on_load_finished : suppression ancienne instance pyglet_player")
+            self.pyglet_player.pause()
+            self.pyglet_player.delete()
+        print("[LOG] Création d'un nouveau pyglet.media.Player")
         self.pyglet_player = pyglet.media.Player()
         try:
-            print(f"[LOG] pyglet.media.load({pyglet_file}) ...")
-            self.pyglet_source = pyglet.media.load(pyglet_file, streaming=False)
+            if temp_wav_path:
+                print(f"[LOG] Chargement source pyglet depuis temp_wav_path={temp_wav_path}")
+                self.pyglet_source = pyglet.media.load(temp_wav_path, streaming=False)
+            else:
+                print(f"[LOG] Chargement source pyglet depuis original_file={original_file}")
+                self.pyglet_source = pyglet.media.load(original_file, streaming=False)
             self.pyglet_player.queue(self.pyglet_source)
-            print(f"[LOG] pyglet source chargé, duration={getattr(self.pyglet_source, 'duration', 'inconnu')}")
+            print("[LOG] Lancement automatique de la lecture (play)")
+            self.pyglet_player.play()  # Démarrer automatiquement la lecture
+            self.is_playing = True
+            self.play_button.setText("PAUSE")
+            self.timer.start(100)
         except Exception as e:
-            print(f"[LOG] Erreur pyglet : {e}")
+            print(f"[LOG] Erreur lors du chargement ou du lancement pyglet : {e}")
             self.info_label.setText(f"Erreur lecture (pyglet) : {e}")
             return
-        # --- Labels info/qualité ---
-        artiste, titre = self.extract_artist_title(file_name)
+        # --- Infos UI ---
         if artiste and titre:
             self.info_label.setText(f"{artiste} - {titre}")
         else:
-            self.info_label.setText(os.path.basename(file_name))
-        # --- Affichage BPM, key, année ---
-        bpm_str = key_str = year_str = ""
-        try:
-            # BPM avec librosa
-            tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
-            bpm_str = f"BPM : {tempo:.1f}"
-            print(f"[LOG] BPM : {tempo:.1f}")
-        except Exception as e:
-            print(f"[LOG] Erreur BPM : {e}")
-        try:
-            # Key avec librosa
-            chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
-            key_idx = chroma.mean(axis=1).argmax()
-            key_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-            key_str = f"Key : {key_names[key_idx]}"
-            print(f"[LOG] Key : {key_names[key_idx]}")
-        except Exception as e:
-            print(f"[LOG] Erreur key : {e}")
-        try:
-            import mutagen
-            audio = mutagen.File(file_name)
-            year = None
-            if audio:
-                if 'date' in audio:
-                    year = audio['date'][0]
-                elif 'TDRC' in audio:
-                    year = str(audio['TDRC'])
-                elif hasattr(audio, 'tags') and audio.tags:
-                    for tag in ['date', 'year', 'TDRC']:
-                        if tag in audio.tags:
-                            year = str(audio.tags[tag][0])
-                            break
-            if year:
-                year_str = f"Année : {year}"
-                print(f"[LOG] Année : {year}")
-        except Exception as e:
-            print(f"[LOG] Erreur année : {e}")
-        # Affichage sous le titre
-        infos = " | ".join([s for s in [bpm_str, key_str, year_str] if s])
+            self.info_label.setText(os.path.basename(self.current_file))
         if infos:
             self.info_label.setText(self.info_label.text() + f"\n{infos}")
-        # Calcul LUFS avec pyloudnorm sur le signal stéréo d'origine
-        try:
-            import pyloudnorm as pyln
-            meter = pyln.Meter(sr)
-            lufs = meter.integrated_loudness(y_stereo)
-            lufs_str = f" / LUFS: {lufs:.1f} dB"
-            print(f"[LOG] LUFS (stéréo) : {lufs:.1f} dB")
-        except Exception as e:
-            lufs_str = ""
-            print(f"[LOG] Erreur calcul LUFS : {e}")
-        # Calcul Peak Level (dBFS)
-        try:
-            peak = np.max(np.abs(y_stereo))
-            peak_dbfs = 20 * np.log10(peak) if peak > 0 else -np.inf
-            peak_str = f" / Peak : {peak_dbfs:.2f} dBFS"
-            print(f"[LOG] Peak Level : {peak_dbfs:.2f} dBFS")
-        except Exception as e:
-            peak_str = ""
-            print(f"[LOG] Erreur calcul Peak : {e}")
-        # Calcul corrélation stéréo
-        try:
-            if y_stereo.shape[1] == 2:
-                left = y_stereo[:,0]
-                right = y_stereo[:,1]
-                corr = np.corrcoef(left, right)[0,1]
-                corr_str = f" / Corrélation : {corr:.2f}"
-                print(f"[LOG] Corrélation stéréo : {corr:.2f}")
-            else:
-                corr_str = ""
-        except Exception as e:
-            corr_str = ""
-            print(f"[LOG] Erreur calcul corrélation : {e}")
-        # Qualité : fréquence d'échantillonnage, bitrate, LUFS, bit depth
-        quality = f"{int(sr/1000):.1f} kHz"
-        try:
-            import mutagen
-            audio = mutagen.File(file_name)
-            if audio and hasattr(audio.info, 'bitrate') and audio.info.bitrate:
-                kbps = int(audio.info.bitrate / 1000)
-                quality += f" / {kbps} kbps"
-        except Exception as e:
-            print(f"[LOG] Erreur extraction bitrate mutagen : {e}")
-        if bits:
-            quality += f" / {bits} bits"
-        elif bit_depth:
-            quality += f" / {bit_depth}"
-        quality += lufs_str + peak_str + corr_str
-        print(f"[LOG] Infos qualité : {quality}")
         self.quality_label.setText(quality)
+
+    def on_load_error(self, message):
+        self.info_label.setText(f"Erreur chargement : {message}")
+        self.quality_label.setText("")
+        self.waveform_widget.set_waveform(None, 0)
+        self.waveform_widget.set_position(0)
 
     def audio_callback(self, outdata, frames, time, status):
         if self.audio_data is None:
@@ -430,7 +477,7 @@ class SimpleAudioPlayer(QMainWindow):
         )
         self.stream.start()
         self.is_playing = True
-        self.play_button.setText("⏸")
+        self.play_button.setText("PAUSE")
         self.timer.start(100)
 
     def toggle_play(self):
@@ -443,7 +490,7 @@ class SimpleAudioPlayer(QMainWindow):
                 print("[LOG] pyglet_player.play() appelé")
                 self.pyglet_player.play()
             self.is_playing = True
-            self.play_button.setText("PUSE")
+            self.play_button.setText("PAUSE")
             self.timer.start(100)
         else:
             if self.pyglet_player:
@@ -459,7 +506,7 @@ class SimpleAudioPlayer(QMainWindow):
             self.pyglet_player.pause()
             self.pyglet_player.seek(0)
         self.is_playing = False
-        self.play_button.setText("PLAY")
+        self.play_button.setText("PLUY")
         self.waveform_widget.set_position(0)
         self.timer.stop()
 
