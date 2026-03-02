@@ -5,7 +5,7 @@ a = Analysis(
     ['macamp.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('Inter_24pt-Regular.ttf', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

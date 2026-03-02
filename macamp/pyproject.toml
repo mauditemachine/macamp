@@ -1,0 +1,96 @@
+# This project was generated with 0.3.22 using template: https://github.com/beeware/briefcase-template@v0.3.22
+[tool.briefcase]
+project_name = "macamp"
+bundle = "com.example"
+version = "0.0.1"
+url = "https://example.com/macamp"
+license.file = "LICENSE"
+author = "Maudite Machine"
+author_email = "mauditemachine@gmail.com"
+
+[tool.briefcase.app.macamp]
+formal_name = "macamp"
+description = "Maudite Machine"
+long_description = """More details about the app should go here.
+"""
+sources = [
+    "src/macamp",
+]
+test_sources = [
+    "tests",
+]
+
+requires = [
+    "pygame~=2.6",
+]
+test_requires = [
+    "pytest",
+]
+
+[tool.briefcase.app.macamp.macOS]
+universal_build = true
+requires = [
+    "std-nslog~=1.0.3",
+]
+
+[tool.briefcase.app.macamp.linux]
+requires = [
+]
+
+[tool.briefcase.app.macamp.linux.system.debian]
+system_requires = [
+]
+
+system_runtime_requires = [
+]
+
+[tool.briefcase.app.macamp.linux.system.rhel]
+system_requires = [
+]
+
+system_runtime_requires = [
+]
+
+[tool.briefcase.app.macamp.linux.system.suse]
+system_requires = [
+]
+
+system_runtime_requires = [
+]
+
+[tool.briefcase.app.macamp.linux.system.arch]
+system_requires = [
+]
+
+system_runtime_requires = [
+]
+
+[tool.briefcase.app.macamp.linux.appimage]
+manylinux = "manylinux_2_28"
+
+system_requires = [
+]
+
+linuxdeploy_plugins = [
+]
+
+[tool.briefcase.app.macamp.linux.flatpak]
+flatpak_runtime = "org.freedesktop.Platform"
+flatpak_runtime_version = "24.08"
+flatpak_sdk = "org.freedesktop.Sdk"
+
+[tool.briefcase.app.macamp.windows]
+requires = [
+]
+
+# Mobile deployments
+[tool.briefcase.app.macamp.iOS]
+supported = false
+
+[tool.briefcase.app.macamp.android]
+supported = false
+
+# Web deployments
+[tool.briefcase.app.macamp.web]
+supported = false
+

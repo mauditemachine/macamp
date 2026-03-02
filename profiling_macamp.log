@@ -1,0 +1,65 @@
+[PROFILING] Début chargement : /Users/mauditemachine/Library/Mobile Documents/com~apple~CloudDocs/Rekordbox/Electro Minimal/10dens - When the Skyline Crumbles.wav
+[PROFILING] sf.info : 0.000s
+[PROFILING] sf.read + conversion : 0.150s
+[PROFILING] librosa.get_duration : 0.241s
+[PROFILING] mutagen (métadonnées) : 0.021s
+[PROFILING] librosa.beat.beat_track : 1.276s
+[PROFILING] librosa.feature.chroma_cqt : 1.650s
+[PROFILING] mutagen (année) : 0.001s
+[PROFILING] pyloudnorm (LUFS) : 0.517s
+[PROFILING] Calcul peak : 0.011s
+[PROFILING] Calcul corrélation : 0.075s
+[PROFILING] Infos qualité : 0.000s
+[PROFILING] Temps total LoaderWorker.run : 4.228s
+[PROFILING] Début chargement : /Users/mauditemachine/Library/Mobile Documents/com~apple~CloudDocs/Rekordbox/Electro Minimal/10dens - When the Skyline Crumbles.wav
+[PROFILING] sf.info : 0.000s
+[PROFILING] sf.read + conversion : 0.148s
+[PROFILING] librosa.get_duration : 0.233s
+[PROFILING] mutagen (métadonnées) : 0.021s
+[PROFILING] librosa.beat.beat_track (extrait) : 0.274s
+[PROFILING] librosa.feature.chroma_cqt (extrait) : 0.254s
+[PROFILING] mutagen (année) : 0.000s
+[PROFILING] pyloudnorm (LUFS, extrait) : 0.074s
+[PROFILING] Calcul peak (extrait) : 0.002s
+[PROFILING] Calcul corrélation (extrait) : 0.013s
+[PROFILING] Infos qualité : 0.000s
+[PROFILING] Temps total LoaderWorker.run : 1.288s
+[PROFILING] Début chargement : /Users/mauditemachine/Library/Mobile Documents/com~apple~CloudDocs/Rekordbox/Electro Minimal/Amirali - My Way  Original Mix.mp3
+[PROFILING] sf.info : 0.001s
+[PROFILING] sf.read + conversion : 0.340s
+[PROFILING] librosa.get_duration : 0.000s
+[PROFILING] mutagen (métadonnées) : 0.002s
+[PROFILING] librosa.beat.beat_track (extrait) : 0.494s
+[PROFILING] librosa.feature.chroma_cqt (extrait) : 0.261s
+[PROFILING] mutagen (année) : 0.000s
+[PROFILING] pyloudnorm (LUFS, extrait) : 0.085s
+[PROFILING] Calcul peak (extrait) : 0.002s
+[PROFILING] Calcul corrélation (extrait) : 0.017s
+[PROFILING] Infos qualité : 0.000s
+[PROFILING] Temps total LoaderWorker.run : 1.217s
+[PROFILING] Début chargement : /Users/mauditemachine/Library/Mobile Documents/com~apple~CloudDocs/Rekordbox/Electro Minimal/Adriatique - Soul Valley.mp3
+[PROFILING] sf.info : 0.000s
+[PROFILING] sf.read + conversion : 0.399s
+[PROFILING] librosa.get_duration : 0.295s
+[PROFILING] mutagen (métadonnées) : 0.027s
+[PROFILING] librosa.beat.beat_track (extrait) : 0.273s
+[PROFILING] librosa.feature.chroma_cqt (extrait) : 0.263s
+[PROFILING] mutagen (année) : 0.001s
+[PROFILING] pyloudnorm (LUFS, extrait) : 0.071s
+[PROFILING] Calcul peak (extrait) : 0.002s
+[PROFILING] Calcul corrélation (extrait) : 0.012s
+[PROFILING] Infos qualité : 0.000s
+[PROFILING] Temps total LoaderWorker.run : 1.629s
+[PROFILING] Début chargement : /Users/mauditemachine/Library/Mobile Documents/com~apple~CloudDocs/Rekordbox/Electro Minimal/Affkt - San Diego (Kruse & Nuernberg Remix).wav
+[PROFILING] sf.info : 0.000s
+[PROFILING] sf.read + conversion : 0.167s
+[PROFILING] librosa.get_duration : 0.000s
+[PROFILING] mutagen (métadonnées) : 0.000s
+[PROFILING] librosa.beat.beat_track (extrait) : 0.175s
+[PROFILING] librosa.feature.chroma_cqt (extrait) : 0.255s
+[PROFILING] mutagen (année) : 0.000s
+[PROFILING] pyloudnorm (LUFS, extrait) : 0.093s
+[PROFILING] Calcul peak (extrait) : 0.004s
+[PROFILING] Calcul corrélation (extrait) : 0.016s
+[PROFILING] Infos qualité : 0.000s
+[PROFILING] Temps total LoaderWorker.run : 0.723s
